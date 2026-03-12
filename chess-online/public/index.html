@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chess Online</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="toastStack" style="position:fixed; right:12px; top:12px; display:flex; flex-direction:column; gap:8px; z-index:9999;"></div>
+  <div class="container">
+    <h1>Chess Online</h1>
+
+    <div class="lobby">
+      <input id="roomInput" placeholder="Enter room ID (e.g., game123)" />
+      <button id="joinBtn">Create / Join Room</button>
+      <div class="hint">Share the same Room ID with a friend to play together.</div>
+      <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="vsCpuWhite">Play vs Computer (as White)</button>
+        <button id="vsCpuBlack">Play vs Computer (as Black)</button>
+      </div>
+    </div>
+
+    <div id="game" class="hidden">
+      <div class="status">
+        <div>Room: <span id="roomLabel"></span></div>
+        <div>You are: <span id="colorLabel">-</span></div>
+        <div>Turn: <span id="turnLabel">-</span></div>
+        <div>Players: <span id="playersLabel">-</span></div>
+        <div id="notice"></div>
+        <div class="banners" id="banners"></div>
+        <div class="clocks" style="margin-top:10px; display:grid; grid-template-columns: auto auto; gap:6px; align-items:center;">
+          <div>White clock</div>
+          <div id="clockWhite" style="font-weight:700; text-align:right;">05:00</div>
+          <div>Black clock</div>
+          <div id="clockBlack" style="font-weight:700; text-align:right;">05:00</div>
+        </div>
+        <!-- Mini Settings Popover -->
+        <div id="settingsPopover" style="display:none; position:absolute; right:0; top:48px; background:#0b1220; border:1px solid #334155; border-radius:8px; padding:10px; min-width:240px; box-shadow:0 10px 20px rgba(0,0,0,0.35); z-index:50;">
+          <div style="font-weight:700; margin-bottom:6px;">Settings</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; align-items:center;">
+            <label for="analysisQuickDepth">Analysis quick depth</label>
+            <select id="analysisQuickDepth">
+              <option value="1">1</option>
+              <option value="2" selected>2</option>
+              <option value="3">3</option>
+            </select>
+            <label for="analysisDeepDepth">Analysis deeper depth</label>
+            <select id="analysisDeepDepth">
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+              <option value="5">5</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap: wrap; align-items:center; position:relative;">
+          <button id="copyLinkBtn">Copy Room Link</button>
+          <button id="restartBtn">Restart</button>
+          <button id="resignBtn">Resign</button>
+          <button id="backBtn">Back to Lobby</button>
+          <button id="exitCpuBtn" style="display:none;">Exit vs Computer</button>
+          <span id="copyOk" style="color:#22c55e; display:none;">Link copied</span>
+          <button id="offerDrawBtn" title="Offer a draw">Offer Draw</button>
+          <button id="offerTakebackBtn" title="Request takeback of last move">Offer Takeback</button>
+          <button id="settingsBtn" title="Preferences">Settings</button>
+          <label style="margin-left:8px;">Theme
+            <select id="themeSelect">
+              <option value="classic">Classic</option>
+              <option value="green">Green</option>
+              <option value="blue">Blue</option>
+              <option value="gray">Gray</option>
+            </select>
+          </label>
+          <label>Board
+            <select id="sizeSelect">
+              <option value="480">Small</option>
+              <option value="560" selected>Medium</option>
+              <option value="640">Large</option>
+            </select>
+          </label>
+          <label>Difficulty
+            <select id="difficultySelect" title="Computer strength">
+              <option value="1">Easy (Beginner)</option>
+              <option value="2" selected>Medium (Intermediate)</option>
+              <option value="3">Hard (Advanced)</option>
+              <option value="4">Expert (Master)</option>
+              <option value="5">Grandmaster</option>
+            </select>
+          </label>
+          <button id="pgnBtn" title="Download game PGN">Download PGN</button>
+          <label style="margin-left:8px;">Sound
+            <span style="display:inline-flex; gap:6px; align-items:center;">
+              <label><input id="muteAll" type="checkbox" />Mute</label>
+              <label><input id="sndMove" type="checkbox" checked />Move</label>
+              <label><input id="sndCapture" type="checkbox" checked />Capture</label>
+              <label><input id="sndCheck" type="checkbox" checked />Check</label>
+              <label><input id="sndGame" type="checkbox" checked />Game</label>
+            </span>
+          </label>
+        </div>
+        <div class="movelist" style="margin-top:12px;">
+          <div style="font-weight:700; margin-bottom:6px;">Moves</div>
+          <div id="movesContainer" style="max-height:220px; overflow:auto; border:1px solid #334155; border-radius:6px; padding:8px; background:#0b1220;"></div>
+        </div>
+        <div class="analysis" style="margin-top:12px;">
+          <div style="font-weight:700; margin-bottom:6px;">Analysis</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
+            <button id="enterAnalysisBtn">Enter Analysis</button>
+            <button id="exitAnalysisBtn" style="display:none;">Exit Analysis</button>
+            <button id="deeperEvalBtn" title="Run a deeper engine evaluation for the current position">Deeper Eval</button>
+            <span id="analysisInfo" style="color:#94a3b8;"></span>
+          </div>
+          <input id="analysisSlider" type="range" min="0" max="0" value="0" list="analysisTicks" style="width:100%;" />
+          <datalist id="analysisTicks"></datalist>
+          <div id="evalContainer" style="position:relative; height:14px; background:#111827; border:1px solid #334155; border-radius:7px; overflow:hidden; margin-top:8px;">
+            <div id="evalBar" style="position:absolute; left:0; top:0; bottom:0; width:50%; background:#22c55e;"></div>
+          </div>
+        </div>
+      </div>
+      <div id="boardWrap" style="position:relative; width: 480px">
+        <div id="board" style="width: 100%"></div>
+        <canvas id="boardOverlay" style="position:absolute; left:0; top:0; right:0; bottom:0; pointer-events:none;"></canvas>
+      </div>
+      <div class="chat" style="margin-top:12px; background:#0b1220; border:1px solid #334155; border-radius:8px; padding:8px;">
+        <div style="font-weight:700; margin-bottom:6px;">Chat</div>
+        <div id="chatMessages" style="height:160px; overflow:auto; border:1px solid #334155; border-radius:6px; padding:8px; background:#0a0f1d;"></div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <input id="chatInput" placeholder="Type a message" style="flex:1; padding:8px; border-radius:6px; border:1px solid #334155; background:#0b1220; color:#e2e8f0;" />
+          <button id="chatSendBtn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Removed socket.io when running as a standalone file; online mode requires server -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <!-- Resilient loader to ensure chess.js is present -->
+  <script>
+    (function ensureChessJs() {
+      if (typeof window.Chess === 'function') return;
+      var urls = [
+        'https://cdn.jsdelivr.net/npm/chess.js@0.13.4/chess.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js',
+        './vendor/chess.min.js'
+      ];
+      function loadNext(i) {
+        if (i >= urls.length) { console.error('Failed to load chess.js from all sources'); return; }
+        var s = document.createElement('script');
+        s.src = urls[i];
+        s.onload = function() { if (typeof window.Chess !== 'function') loadNext(i+1); };
+        s.onerror = function() { loadNext(i+1); };
+        document.head.appendChild(s);
+      }
+      loadNext(0);
+    })();
+  </script>
+  <script src="./client-improved.js"></script>
+</body>
+</html>

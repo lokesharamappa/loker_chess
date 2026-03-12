@@ -1,0 +1,310 @@
+name: 🏆 Chess Platform CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: chess-platform
+
+jobs:
+  # 🔍 Code Quality & Security
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: 📦 Install Dependencies
+      run: npm ci --prefer-offline --no-audit
+
+    - name: 🔍 ESLint (Code Quality)
+      run: npm run lint
+      continue-on-error: false
+
+    - name: 🧹 Prettier Check
+      run: npm run format:check
+
+    - name: 🔒 Security Audit
+      run: npm audit --audit-level moderate
+
+    - name: 📊 SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # 🧪 Test Suite
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        node-version: [16, 18, 20]
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: 📦 Install Dependencies
+      run: npm ci --prefer-offline --no-audit
+
+    - name: 🧪 Unit Tests
+      run: npm run test:coverage
+
+    - name: 📊 Coverage Report
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+
+    - name: 🔍 Integration Tests
+      run: npm run test:integration
+
+    - name: 🎯 E2E Tests
+      run: npm run test:e2e
+      env:
+        CYPRESS_BASE_URL: http://localhost:3001
+
+    - name: 📈 Performance Tests
+      run: npm run test:performance
+
+  # 🐳 Build & Security Scan
+  build:
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    timeout-minutes: 30
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 🔐 Login to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 🏷️ Extract Metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: 🐳 Build and Push Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        secrets: |
+          GIT_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+
+    - name: 🔍 Container Security Scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: 📊 Upload Trivy Results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # 🚀 Deploy to Development
+  deploy-dev:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    environment: development
+    timeout-minutes: 15
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: 🔐 Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_DEV }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+
+    - name: 🚀 Deploy to Development
+      run: |
+        export KUBECONFIG=kubeconfig
+        kubectl set image deployment/chess-game-service game-service=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop -n chess-dev
+        kubectl rollout status deployment/chess-game-service -n chess-dev --timeout=300s
+
+    - name: 🔍 Smoke Tests
+      run: |
+        export KUBECONFIG=kubeconfig
+        kubectl wait --for=condition=ready pod -l app=chess-game -n chess-dev --timeout=60s
+        npm run test:smoke -- --env=development
+
+  # 🚀 Deploy to Production
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    timeout-minutes: 20
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: 🔐 Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+
+    - name: 🚀 Deploy to Production (Blue-Green)
+      run: |
+        export KUBECONFIG=kubeconfig
+        
+        # Deploy to green environment
+        kubectl apply -f k8s/ -n chess-green
+        
+        # Wait for green to be ready
+        kubectl wait --for=condition=ready pod -l app=chess-game -n chess-green --timeout=300s
+        
+        # Run health checks
+        npm run test:health -- --env=production-green
+        
+        # Switch traffic to green
+        kubectl patch service chess-game-service -p '{"spec":{"selector":{"version":"green"}}}' -n chess-prod
+        
+        # Wait for rollout
+        sleep 30
+        
+        # Verify production health
+        npm run test:health -- --env=production
+
+    - name: 📊 Post-Deployment Monitoring
+      run: |
+        # Check application metrics
+        curl -f https://api.chess-platform.com/health || exit 1
+        
+        # Verify key endpoints
+        npm run test:api -- --env=production
+
+    - name: 🧪 Load Testing
+      run: npm run test:load -- --env=production
+
+    - name: 📧 Deployment Notification
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # 📊 Monitoring & Observability
+  observability:
+    runs-on: ubuntu-latest
+    needs: [deploy-prod]
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 📊 Update Grafana Dashboards
+      run: |
+        curl -X POST "${{ secrets.GRAFANA_API_URL }}/api/dashboards/db" \
+          -H "Authorization: Bearer ${{ secrets.GRAFANA_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d @monitoring/grafana/dashboards.json
+
+    - name: 🔔 Alert Configuration
+      run: |
+        # Update Prometheus rules
+        curl -X POST "${{ secrets.PROMETHEUS_URL }}/api/v1/rules" \
+          -H "Content-Type: application/json" \
+          -d @monitoring/prometheus/rules.yml
+
+    - name: 📈 Performance Baseline
+      run: |
+        # Record performance metrics
+        npm run benchmark:record -- --env=production
+
+  # 🧹 Cleanup
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [deploy-prod]
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 5
+    steps:
+    - name: 🔧 Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: 🧹 Cleanup Old Deployments
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+        
+        # Remove old blue environment
+        kubectl delete namespace chess-blue --ignore-not-found=true
+        
+        # Clean up old Docker images
+        docker system prune -f
+
+# 🎯 Workflow Status
+on:
+  workflow_run:
+    workflows: ["🏆 Chess Platform CI/CD Pipeline"]
+    types:
+      - completed
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion != 'success' }}
+    steps:
+    - name: 📧 Failure Notification
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#alerts'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        message: "🚨 Pipeline failed! Check GitHub Actions for details."

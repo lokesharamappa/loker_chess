@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Button Click Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+    .test-area { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    button { background: #3498db; color: white; padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #2980b9; }
+    .log { background: #2c3e50; color: white; padding: 10px; border-radius: 4px; font-family: monospace; max-height: 300px; overflow-y: auto; }
+    .board { width: 400px; height: 400px; margin: 20px 0; border: 2px solid #333; }
+  </style>
+</head>
+<body>
+  <div class="test-area">
+    <h1>🧪 Button Click Test</h1>
+    <p>Testing if "Play vs Computer (White)" button actually works</p>
+    
+    <button onclick="testButton()">Test CPU White Button</button>
+    <button onclick="testBoardCreation()">Test Board Creation</button>
+    <button onclick="simulateGame()">Simulate Full Game</button>
+    <button onclick="clearLog()">Clear Log</button>
+    
+    <div id="status" style="margin: 10px 0; padding: 10px; background: #e8f5e8; border-radius: 4px;">Ready to test</div>
+    
+    <div id="board" class="board"></div>
+    
+    <div class="log" id="log">Test log will appear here...</div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chess.js@0.13.4/chess.min.js"></script>
+
+  <script>
+    let board = null;
+    let chess = null;
+    let gameMode = null;
+    let humanColor = null;
+    let cpuColor = null;
+
+    function log(message) {
+      const logEl = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      logEl.innerHTML += timestamp + ': ' + message + '<br>';
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(message);
+    }
+
+    function updateStatus(message, isError = false) {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = message;
+      statusEl.style.background = isError ? '#ffe8e8' : '#e8f5e8';
+      log(message);
+    }
+
+    function testButton() {
+      log('🧪 Testing "Play vs Computer (White)" button functionality...');
+      
+      try {
+        // Step 1: Check dependencies
+        if (typeof window.Chess === 'undefined') {
+          throw new Error('Chess.js not loaded');
+        }
+        if (typeof window.ChessBoard === 'undefined') {
+          throw new Error('ChessBoard.js not loaded');
+        }
+        log('✅ Dependencies OK');
+        
+        // Step 2: Simulate button click - start CPU game as white
+        log('🎮 Starting CPU game as White...');
+        
+        gameMode = 'cpu';
+        humanColor = 'w';
+        cpuColor = 'b';
+        
+        // Create chess game
+        chess = new window.Chess();
+        log('✅ Chess game created: ' + chess.fen());
+        
+        // Create board
+        createBoard();
+        log('✅ Board created');
+        
+        // Update UI (simulate the chess-app.html behavior)
+        updateStatus('CPU game started! You are White, CPU is Black');
+        log('✅ Game mode set: CPU, Human: White, CPU: Black');
+        
+        // Verify board is interactive
+        if (board && chess) {
+          log('✅ Board is ready for interaction');
+          log('🎯 Try dragging a piece (e.g., pawn from e2 to e4)');
+        } else {
+          throw new Error('Board or chess not initialized properly');
+        }
+        
+      } catch (error) {
+        updateStatus('❌ ERROR: ' + error.message, true);
+        log('❌ Test failed: ' + error.message);
+      }
+    }
+
+    function createBoard() {
+      if (board) {
+        board.destroy();
+        log('Destroyed existing board');
+      }
+      
+      const cfg = {
+        draggable: true,
+        position: chess.fen(),
+        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+        onDragStart: onDragStart,
+        onDrop: onDrop,
+        onSnapEnd: onSnapEnd
+      };
+      
+      const boardEl = document.getElementById('board');
+      board = window.ChessBoard(boardEl, cfg);
+      
+      boardEl.style.borderRadius = '4px';
+      boardEl.style.overflow = 'hidden';
+      boardEl.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+      
+      log('Board configured with drag & drop');
+    }
+
+    function testBoardCreation() {
+      log('🧪 Testing board creation independently...');
+      
+      try {
+        chess = new window.Chess();
+        createBoard();
+        updateStatus('Board created successfully!');
+        log('✅ Board creation test passed');
+      } catch (error) {
+        updateStatus('❌ Board creation failed: ' + error.message, true);
+        log('❌ Board creation failed: ' + error.message);
+      }
+    }
+
+    function simulateGame() {
+      log('🎮 Simulating complete game flow...');
+      
+      try {
+        // Start game
+        testButton();
+        
+        // Make a test move after 1 second
+        setTimeout(() => {
+          log('🎯 Making test move: e2 to e4');
+          const move = chess.move({ from: 'e2', to: 'e4' });
+          
+          if (move) {
+            board.position(chess.fen());
+            updateStatus('Move played: e4. CPU should respond...');
+            log('✅ Move successful: ' + move.san);
+            
+            // Simulate CPU response after 1 second
+            setTimeout(() => {
+              makeCPUMove();
+            }, 1000);
+          } else {
+            log('❌ Move failed');
+          }
+        }, 1000);
+        
+      } catch (error) {
+        updateStatus('❌ Game simulation failed: ' + error.message, true);
+        log('❌ Game simulation failed: ' + error.message);
+      }
+    }
+
+    function makeCPUMove() {
+      if (!chess || gameMode !== 'cpu' || chess.turn() !== cpuColor) {
+        log('CPU move not needed');
+        return;
+      }
+      
+      log('🤖 CPU is thinking...');
+      
+      const moves = chess.moves({ verbose: true });
+      log('CPU has ' + moves.length + ' available moves');
+      
+      if (moves.length === 0) {
+        log('No CPU moves available');
+        return;
+      }
+      
+      // Make a random move
+      const randomMove = moves[Math.floor(Math.random() * moves.length)];
+      const move = chess.move(randomMove);
+      
+      if (move) {
+        board.position(chess.fen());
+        updateStatus('CPU played: ' + move.san + '. Your turn!');
+        log('✅ CPU move successful: ' + move.san);
+        log('🎯 Game is working! Keep playing!');
+      } else {
+        log('❌ CPU move failed');
+      }
+    }
+
+    function clearLog() {
+      document.getElementById('log').innerHTML = 'Log cleared...<br>';
+    }
+
+    // Chess board event handlers
+    function onDragStart(source, piece, position, orientation) {
+      log('🎯 Drag start: ' + source + ' ' + piece);
+      
+      if (!chess || chess.game_over()) return false;
+      
+      if (gameMode === 'cpu' && humanColor) {
+        const pieceColor = piece.charAt(0) === 'w' ? 'w' : 'b';
+        if (pieceColor !== humanColor) {
+          log('❌ Not your piece - drag not allowed');
+          return false;
+        }
+      }
+      
+      return true;
+    }
+
+    function onDrop(source, target) {
+      log('🎯 Drop: ' + source + ' -> ' + target);
+      
+      if (!chess) return 'snapback';
+      
+      try {
+        const move = chess.move({
+          from: source,
+          to: target,
+          promotion: 'q'
+        });
+        
+        if (move === null) {
+          log('❌ Illegal move - snapback');
+          return 'snapback';
+        }
+        
+        board.position(chess.fen());
+        updateStatus('Move played: ' + move.san + '. CPU thinking...');
+        log('✅ Move successful: ' + move.san);
+        
+        // Trigger CPU move
+        if (gameMode === 'cpu' && cpuColor === chess.turn()) {
+          setTimeout(makeCPUMove, 1000);
+        }
+        
+      } catch (error) {
+        log('❌ Move error: ' + error.message);
+        return 'snapback';
+      }
+    }
+
+    function onSnapEnd() {
+      if (board && chess) {
+        board.position(chess.fen());
+      }
+    }
+
+    // Initialize
+    window.addEventListener('load', function() {
+      log('🚀 Button test page loaded');
+      updateStatus('Ready! Click "Test CPU White Button" to test the functionality');
+    });
+  </script>
+</body>
+</html>

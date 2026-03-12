@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <!-- White King -->
+  <symbol id="wk" viewBox="0 0 45 45">
+    <g fill="#fff" stroke="#333" stroke-width="1.5">
+      <path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38V17l-1.78 2.22v2.22h2.22v2.22h2.22v2.22h2.22v-2.22h2.22v-2.22h2.22v-2.22L25.78 17v-1.62c.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z"/>
+      <circle cx="22.5" cy="11" r="1.5"/>
+      <path d="M22.5 14.5l-2.5 2.5v2.5h5v-2.5l-2.5-2.5z"/>
+      <path d="M20 19.5h5v2h-5z"/>
+      <path d="M20 21.5h5v2h-5z"/>
+    </g>
+  </symbol>
+
+  <!-- Black King -->
+  <symbol id="bk" viewBox="0 0 45 45">
+    <g fill="none" stroke="#000" stroke-width="2">
+      <path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38V17l-1.78 2.22v2.22h2.22v2.22h2.22v2.22h2.22v-2.22h2.22v-2.22h2.22v-2.22L25.78 17v-1.62c.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z"/>
+      <circle cx="22.5" cy="11" r="1.5"/>
+      <path d="M22.5 14.5l-2.5 2.5v2.5h5v-2.5l-2.5-2.5z"/>
+      <path d="M20 19.5h5v2h-5z"/>
+      <path d="M20 21.5h5v2h-5z"/>
+    </g>
+  </symbol>
+
+  <!-- White Queen -->
+  <symbol id="wq" viewBox="0 0 45 45">
+    <g fill="#fff" stroke="#333" stroke-width="1.5">
+      <circle cx="22.5" cy="12" r="2.5"/>
+      <path d="M22.5 14.5l-3 3v3h6v-3l-3-3z"/>
+      <path d="M19.5 20.5h6v2h-6z"/>
+      <path d="M19.5 22.5h6v2h-6z"/>
+      <path d="M22.5 8l-1.5 1.5v1.5l1.5 1.5 1.5-1.5v-1.5l-1.5-1.5z"/>
+      <path d="M22.5 5l-1 1v1l1 1 1-1v-1l-1-1z"/>
+      <path d="M22.5 2l-0.5 0.5v1l0.5 0.5 0.5-0.5v-1l-0.5-0.5z"/>
+    </g>
+  </symbol>
+
+  <!-- Black Queen -->
+  <symbol id="bq" viewBox="0 0 45 45">
+    <g fill="none" stroke="#000" stroke-width="2">
+      <circle cx="22.5" cy="12" r="2.5"/>
+      <path d="M22.5 14.5l-3 3v3h6v-3l-3-3z"/>
+      <path d="M19.5 20.5h6v2h-6z"/>
+      <path d="M19.5 22.5h6v2h-6z"/>
+      <path d="M22.5 8l-1.5 1.5v1.5l1.5 1.5 1.5-1.5v-1.5l-1.5-1.5z"/>
+      <path d="M22.5 5l-1 1v1l1 1 1-1v-1l-1-1z"/>
+      <path d="M22.5 2l-0.5 0.5v1l0.5 0.5 0.5-0.5v-1l-0.5-0.5z"/>
+    </g>
+  </symbol>
+
+  <!-- White Rook -->
+  <symbol id="wr" viewBox="0 0 45 45">
+    <g fill="#fff" stroke="#333" stroke-width="1.5">
+      <path d="M15 16v15h15v-15h-15z"/>
+      <path d="M15 16l3-3h9l3 3"/>
+      <path d="M18 13v-3h9v3"/>
+      <path d="M18 10l2-2h5l2 2"/>
+      <path d="M20 8l1-1h3l1 1"/>
+      <path d="M21 7v-2h3v2"/>
+    </g>
+  </symbol>
+
+  <!-- Black Rook -->
+  <symbol id="br" viewBox="0 0 45 45">
+    <g fill="none" stroke="#000" stroke-width="2">
+      <path d="M15 16v15h15v-15h-15z"/>
+      <path d="M15 16l3-3h9l3 3"/>
+      <path d="M18 13v-3h9v3"/>
+      <path d="M18 10l2-2h5l2 2"/>
+      <path d="M20 8l1-1h3l1 1"/>
+      <path d="M21 7v-2h3v2"/>
+    </g>
+  </symbol>
+
+  <!-- White Bishop -->
+  <symbol id="wb" viewBox="0 0 45 45">
+    <g fill="#fff" stroke="#333" stroke-width="1.5">
+      <path d="M22.5 12c-1.5 0-3 1.5-3 3v9l-3 3v3h12v-3l-3-3v-9c0-1.5-1.5-3-3-3z"/>
+      <circle cx="22.5" cy="9" r="2"/>
+      <path d="M22.5 7l-1 1v1l1 1 1-1v-1l-1-1z"/>
+      <path d="M22.5 4l-0.5 0.5v1l0.5 0.5 0.5-0.5v-1l-0.5-0.5z"/>
+    </g>
+  </symbol>
+
+  <!-- Black Bishop -->
+  <symbol id="bb" viewBox="0 0 45 45">
+    <g fill="none" stroke="#000" stroke-width="2">
+      <path d="M22.5 12c-1.5 0-3 1.5-3 3v9l-3 3v3h12v-3l-3-3v-9c0-1.5-1.5-3-3-3z"/>
+      <circle cx="22.5" cy="9" r="2"/>
+      <path d="M22.5 7l-1 1v1l1 1 1-1v-1l-1-1z"/>
+      <path d="M22.5 4l-0.5 0.5v1l0.5 0.5 0.5-0.5v-1l-0.5-0.5z"/>
+    </g>
+  </symbol>
+
+  <!-- White Knight -->
+  <symbol id="wn" viewBox="0 0 45 45">
+    <g fill="#fff" stroke="#333" stroke-width="1.5">
+      <path d="M22 17c-6 0-11 5-11 11v7h22v-7c0-6-5-11-11-11z"/>
+      <path d="M22 17l-3-3v-3c0-1.5 1.5-3 3-3s3 1.5 3 3v3l-3 3z"/>
+      <path d="M19 8l1-1h4l1 1v2l-1 1h-4l-1-1v-2z"/>
+      <path d="M20 6l0.5-0.5h3l0.5 0.5v1l-0.5 0.5h-3l-0.5-0.5v-1z"/>
+    </g>
+  </symbol>
+
+  <!-- Black Knight -->
+  <symbol id="bn" viewBox="0 0 45 45">
+    <g fill="none" stroke="#000" stroke-width="2">
+      <path d="M22 17c-6 0-11 5-11 11v7h22v-7c0-6-5-11-11-11z"/>
+      <path d="M22 17l-3-3v-3c0-1.5 1.5-3 3-3s3 1.5 3 3v3l-3 3z"/>
+      <path d="M19 8l1-1h4l1 1v2l-1 1h-4l-1-1v-2z"/>
+      <path d="M20 6l0.5-0.5h3l0.5 0.5v1l-0.5 0.5h-3l-0.5-0.5v-1z"/>
+    </g>
+  </symbol>
+
+  <!-- White Pawn -->
+  <symbol id="wp" viewBox="0 0 45 45">
+    <g fill="#fff" stroke="#333" stroke-width="1.5">
+      <circle cx="22.5" cy="20" r="4"/>
+      <path d="M22.5 16l-2-2v-3c0-1.5 1.5-3 3-3s3 1.5 3 3v3l-2 2z"/>
+      <path d="M22.5 8l-1-1h2l1 1v2l-1 1h-2l-1-1v-2z"/>
+    </g>
+  </symbol>
+
+  <!-- Black Pawn -->
+  <symbol id="bp" viewBox="0 0 45 45">
+    <g fill="none" stroke="#000" stroke-width="2">
+      <circle cx="22.5" cy="20" r="4"/>
+      <path d="M22.5 16l-2-2v-3c0-1.5 1.5-3 3-3s3 1.5 3 3v3l-2 2z"/>
+      <path d="M22.5 8l-1-1h2l1 1v2l-1 1h-2l-1-1v-2z"/>
+    </g>
+  </symbol>
+</svg>
