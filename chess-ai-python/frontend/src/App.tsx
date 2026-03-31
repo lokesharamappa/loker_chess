@@ -19,15 +19,22 @@ import type { Strength } from './hooks/useChessGame'
 
 type Tab = 'play' | 'puzzles' | 'openings' | 'history' | 'spectate' | 'tournament'
 
-const STRENGTHS: { value: Strength; label: string; elo: number; color: string }[] = [
-  { value: 'beginner',     label: 'Beginner',     elo: 800,  color: '#22c55e' },
-  { value: 'novice',       label: 'Novice',       elo: 1200, color: '#84cc16' },
-  { value: 'intermediate', label: 'Intermediate', elo: 1600, color: '#eab308' },
-  { value: 'advanced',     label: 'Advanced',     elo: 2000, color: '#f97316' },
-  { value: 'expert',       label: 'Expert',       elo: 2400, color: '#ef4444' },
-  { value: 'master',       label: 'Master',       elo: 2600, color: '#a855f7' },
-  { value: 'grandmaster',  label: 'Grandmaster',  elo: 2800, color: '#06b6d4' },
-  { value: 'super_gm',     label: 'Super GM',     elo: 3200, color: '#f59e0b' },
+const STRENGTHS: { value: Strength; label: string; elo: number; color: string; icon: string; desc: string; category: string }[] = [
+  { value: 'beginner',     label: 'Beginner',     elo: 800,  color: '#22c55e', icon: '🌱', desc: 'New to chess — learning the pieces',         category: 'Casual'      },
+  { value: 'novice',       label: 'Novice',       elo: 1200, color: '#84cc16', icon: '📚', desc: 'Knows basics, building opening knowledge',   category: 'Casual'      },
+  { value: 'intermediate', label: 'Intermediate', elo: 1600, color: '#eab308', icon: '♟️', desc: 'Club-level, understands tactics & strategy', category: 'Club'        },
+  { value: 'advanced',     label: 'Advanced',     elo: 2000, color: '#f97316', icon: '🎯', desc: 'Strong club player with tactical vision',    category: 'Club'        },
+  { value: 'expert',       label: 'Expert',       elo: 2400, color: '#ef4444', icon: '⚔️', desc: 'Tournament player, FIDE-rated competitor',   category: 'Tournament'  },
+  { value: 'master',       label: 'Master',       elo: 2600, color: '#a855f7', icon: '🏅', desc: 'FM/IM level — deep preparation & endgames',  category: 'Tournament'  },
+  { value: 'grandmaster',  label: 'Grandmaster',  elo: 2800, color: '#06b6d4', icon: '👑', desc: 'GM level — near-perfect positional play',    category: 'Elite'       },
+  { value: 'super_gm',     label: 'Super GM',     elo: 3200, color: '#f59e0b', icon: '🤖', desc: 'Engine-level — virtually unbeatable',        category: 'Elite'       },
+]
+
+const EXPERIENCE_PRESETS: { label: string; icon: string; desc: string; value: Strength }[] = [
+  { label: "I'm new",       icon: '🌱', desc: 'Just learning',  value: 'beginner'     },
+  { label: 'Casual',        icon: '😊', desc: 'Play for fun',   value: 'intermediate' },
+  { label: 'Club Player',   icon: '♟️', desc: 'Regular games',  value: 'advanced'     },
+  { label: 'Competitive',   icon: '🏆', desc: 'FIDE-rated',     value: 'expert'       },
 ]
 
 function fmtCp(cp?: number, mate?: number): string {
@@ -377,20 +384,48 @@ export default function App() {
               {rightTab === 'settings' && (
                 <div className="space-y-4">
                   <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">AI Strength</p>
-                    <div className="space-y-1">
-                      {STRENGTHS.map(opt => (
-                        <button key={opt.value} onClick={() => setStrength(opt.value)}
-                          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all bg-slate-800 hover:bg-slate-700"
-                          style={strength === opt.value ? {
-                            backgroundColor: opt.color + '22', color: opt.color,
-                            border: `1px solid ${opt.color}66`,
-                          } : {}}>
-                          <span className="font-medium">{opt.label}</span>
-                          <span className="text-xs opacity-70">{opt.elo} ELO</span>
+                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Quick Pick — Who are you?</p>
+                    <div className="grid grid-cols-2 gap-1 mb-3">
+                      {EXPERIENCE_PRESETS.map(p => (
+                        <button key={p.value} onClick={() => setStrength(p.value)}
+                          className={clsx(
+                            'flex flex-col items-center py-2 px-1 rounded-lg text-xs font-medium transition-all border',
+                            strength === p.value
+                              ? 'bg-amber-500/20 border-amber-500/60 text-amber-400'
+                              : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                          )}>
+                          <span className="text-base mb-0.5">{p.icon}</span>
+                          <span>{p.label}</span>
+                          <span className="text-slate-500 text-[10px]">{p.desc}</span>
                         </button>
                       ))}
                     </div>
+                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">AI Strength — Fine Tune</p>
+                    {(['Casual','Club','Tournament','Elite'] as const).map(cat => {
+                      const catItems = STRENGTHS.filter(s => s.category === cat)
+                      const catColors: Record<string,string> = { Casual:'text-green-400', Club:'text-yellow-400', Tournament:'text-red-400', Elite:'text-cyan-400' }
+                      return (
+                        <div key={cat} className="mb-2">
+                          <p className={clsx('text-[10px] font-bold uppercase tracking-widest mb-1', catColors[cat])}>{cat}</p>
+                          <div className="space-y-1">
+                            {catItems.map(opt => (
+                              <button key={opt.value} onClick={() => setStrength(opt.value)}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all bg-slate-800 hover:bg-slate-700 text-left"
+                                style={strength === opt.value ? { backgroundColor: opt.color + '22', border: `1px solid ${opt.color}66` } : { border: '1px solid transparent' }}>
+                                <span className="text-base shrink-0">{opt.icon}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium text-sm" style={strength === opt.value ? { color: opt.color } : {}}>{opt.label}</span>
+                                    <span className="text-xs text-slate-500 font-mono shrink-0 ml-1">{opt.elo}</span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 truncate">{opt.desc}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                   <div>
                     <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Play As</p>
