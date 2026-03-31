@@ -37,6 +37,18 @@ const EXPERIENCE_PRESETS: { label: string; icon: string; desc: string; value: St
   { label: 'Competitive',   icon: '🏆', desc: 'FIDE-rated',     value: 'expert'       },
 ]
 
+const TIME_CONTROLS: { label: string; initial: number; increment: number; category: string }[] = [
+  { label: '1+0',   initial:    60_000, increment:      0, category: 'Bullet'    },
+  { label: '2+1',   initial:   120_000, increment:   1000, category: 'Bullet'    },
+  { label: '3+2',   initial:   180_000, increment:   2000, category: 'Blitz'     },
+  { label: '5+0',   initial:   300_000, increment:      0, category: 'Blitz'     },
+  { label: '5+3',   initial:   300_000, increment:   3000, category: 'Blitz'     },
+  { label: '10+0',  initial:   600_000, increment:      0, category: 'Rapid'     },
+  { label: '15+10', initial:   900_000, increment:  10000, category: 'Rapid'     },
+  { label: '25+10', initial: 1_500_000, increment:  10000, category: 'Rapid'     },
+  { label: '90+30', initial: 5_400_000, increment:  30000, category: 'Classical' },
+]
+
 function fmtCp(cp?: number, mate?: number): string {
   if (mate !== undefined) return mate > 0 ? `M${mate}` : `-M${Math.abs(mate)}`
   if (cp === undefined) return '0.00'
@@ -81,9 +93,15 @@ export default function App() {
   const [evalHistory, setEvalHistory] = useState<(number | null)[]>([])
   const [showAuth, setShowAuth] = useState(false)
   const [thinkingMs, setThinkingMs] = useState(5000)
+  const [timeControl, setTimeControl] = useState(TIME_CONTROLS[3])  // 5+0 Blitz default
+  const [whiteMs, setWhiteMs] = useState(TIME_CONTROLS[3].initial)
+  const [blackMs, setBlackMs] = useState(TIME_CONTROLS[3].initial)
+  const [timeoutMsg, setTimeoutMsg] = useState<string | null>(null)
   const [promotionSquare, setPromotionSquare] = useState<string | null>(null)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const moveListRef = useRef<HTMLDivElement>(null)
+  const clockRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isWhiteTurnRef = useRef(true)
 
   const { user, login, register, logout, refreshRating } = useAuth()
 
@@ -94,9 +112,38 @@ export default function App() {
 
   const selectedStrength = STRENGTHS.find(s => s.value === strength)!
   const isWhiteTurn = game.turn() === 'w'
+  const displayGameOver = gameOver || timeoutMsg
   const pairMoves: [string, string?][] = []
   for (let i = 0; i < moveHistory.length; i += 2)
     pairMoves.push([moveHistory[i], moveHistory[i + 1]])
+
+  useEffect(() => { isWhiteTurnRef.current = isWhiteTurn }, [isWhiteTurn])
+
+  useEffect(() => {
+    if (clockRef.current) clearInterval(clockRef.current)
+    if (displayGameOver || moveHistory.length === 0) return
+    clockRef.current = setInterval(() => {
+      if (isWhiteTurnRef.current) {
+        setWhiteMs(prev => {
+          if (prev <= 100) { clearInterval(clockRef.current!); setTimeoutMsg('Black wins on time! ⏱️'); return 0 }
+          return prev - 100
+        })
+      } else {
+        setBlackMs(prev => {
+          if (prev <= 100) { clearInterval(clockRef.current!); setTimeoutMsg('White wins on time! ⏱️'); return 0 }
+          return prev - 100
+        })
+      }
+    }, 100)
+    return () => { if (clockRef.current) clearInterval(clockRef.current) }
+  }, [isWhiteTurn, displayGameOver, moveHistory.length])
+
+  useEffect(() => {
+    setWhiteMs(timeControl.initial)
+    setBlackMs(timeControl.initial)
+    setTimeoutMsg(null)
+    if (clockRef.current) clearInterval(clockRef.current)
+  }, [timeControl])
 
   useEffect(() => {
     setEvalHistory(prev => [...prev, evalCp ?? null])
@@ -107,6 +154,16 @@ export default function App() {
       moveListRef.current.scrollTop = moveListRef.current.scrollHeight
   }, [moveHistory])
 
+  function handlePlayerMove(from: string, to: string, promo?: string): boolean {
+    const movingSide = game.turn() === 'w' ? 'white' : 'black'
+    const result = makePlayerMove(from, to, promo)
+    if (result && timeControl.increment > 0) {
+      if (movingSide === 'white') setWhiteMs(prev => prev + timeControl.increment)
+      else setBlackMs(prev => prev + timeControl.increment)
+    }
+    return result
+  }
+
   function onDrop(src: string, tgt: string, piece: string): boolean {
     const isPawn = piece[1]?.toUpperCase() === 'P'
     const isBackRank = tgt[1] === '8' || tgt[1] === '1'
@@ -115,13 +172,13 @@ export default function App() {
       setPromotionSquare(tgt)
       return false
     }
-    return makePlayerMove(src, tgt)
+    return handlePlayerMove(src, tgt)
   }
 
   function onPromotionPieceSelect(piece?: string): boolean {
     if (!pendingPromotion) { setPromotionSquare(null); return false }
     const promoLetter = piece ? piece[1]?.toLowerCase() : 'q'
-    const result = makePlayerMove(pendingPromotion.from, pendingPromotion.to, promoLetter)
+    const result = handlePlayerMove(pendingPromotion.from, pendingPromotion.to, promoLetter)
     setPendingPromotion(null)
     setPromotionSquare(null)
     return result
@@ -130,6 +187,10 @@ export default function App() {
   function handleReset() {
     reset()
     setEvalHistory([])
+    setTimeoutMsg(null)
+    setWhiteMs(timeControl.initial)
+    setBlackMs(timeControl.initial)
+    if (clockRef.current) clearInterval(clockRef.current)
   }
 
   function flipBoard() {
@@ -138,6 +199,10 @@ export default function App() {
     setBoardOrientation(next)
     reset()
     setEvalHistory([])
+    setTimeoutMsg(null)
+    setWhiteMs(timeControl.initial)
+    setBlackMs(timeControl.initial)
+    if (clockRef.current) clearInterval(clockRef.current)
   }
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -266,12 +331,12 @@ export default function App() {
                 <Shield className="w-4 h-4 text-slate-500" />
                 <span>{boardOrientation === 'white' ? 'Black (AI)' : 'White (You)'}</span>
               </div>
-              <ChessClock ms={300_000} active={boardOrientation === 'white' ? !isWhiteTurn : isWhiteTurn} />
+              <ChessClock ms={boardOrientation === 'white' ? blackMs : whiteMs} active={!displayGameOver && moveHistory.length > 0 && (boardOrientation === 'white' ? !isWhiteTurn : isWhiteTurn)} />
             </div>
 
-            {gameOver && (
+            {displayGameOver && (
               <div className="w-full max-w-md bg-amber-500 text-slate-900 text-center py-2 rounded-lg font-bold text-sm">
-                {gameOver}
+                {displayGameOver}
               </div>
             )}
 
@@ -296,7 +361,7 @@ export default function App() {
                 <Shield className="w-4 h-4 text-amber-400" />
                 <span>{boardOrientation === 'white' ? 'White (You)' : 'Black (AI)'}</span>
               </div>
-              <ChessClock ms={300_000} active={boardOrientation === 'white' ? isWhiteTurn : !isWhiteTurn} />
+              <ChessClock ms={boardOrientation === 'white' ? whiteMs : blackMs} active={!displayGameOver && moveHistory.length > 0 && (boardOrientation === 'white' ? isWhiteTurn : !isWhiteTurn)} />
             </div>
 
             <div className="flex items-center gap-2">
@@ -487,6 +552,29 @@ export default function App() {
                       ))}
                     </div>
                     <p className="text-xs text-slate-600 mt-1.5">Applied at next move. Depth is capped by strength level.</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Time Control</p>
+                    <p className="text-xs text-slate-600 mb-2">Changing resets the clock. Current: <span className="text-amber-400 font-bold">{timeControl.category} {timeControl.label}</span></p>
+                    {(['Bullet','Blitz','Rapid','Classical'] as const).map(cat => {
+                      const catColor: Record<string,string> = { Bullet:'text-red-400', Blitz:'text-orange-400', Rapid:'text-yellow-400', Classical:'text-green-400' }
+                      return (
+                        <div key={cat} className="mb-2">
+                          <p className={clsx('text-[10px] font-bold uppercase tracking-widest mb-1', catColor[cat])}>{cat}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {TIME_CONTROLS.filter(t => t.category === cat).map(tc => (
+                              <button key={tc.label} onClick={() => setTimeControl(tc)}
+                                className={clsx('px-2 py-1 rounded text-xs font-mono font-medium transition-all border',
+                                  timeControl.label === tc.label
+                                    ? 'bg-amber-500/20 border-amber-500/60 text-amber-400'
+                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200')}>
+                                {tc.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                   <div className="glass rounded-lg p-3 space-y-1">
                     <p className="text-xs text-amber-400 font-medium">Multi-Agent System</p>
