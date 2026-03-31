@@ -4,8 +4,8 @@ id: "SKILL-CHESS-AI-PYTHON-2026-03-31-001"
 author: "Chess AI Development Team"
 status: "Completed"
 created: "2026-03-31"
-updated: "2026-03-31"
-version: "2.2"
+updated: "2026-03-31 v2.3"
+version: "2.3"
 type: "skill"
 ---
 
@@ -18,6 +18,45 @@ Full-stack, FIDE-level professional chess web application built with a **Python 
 **Entry point:** `python run.py` → API at `http://localhost:8000`  
 **Frontend:** `npm run dev` → UI at `http://localhost:5173`  
 **Tests:** `python -m pytest tests/ -v` (31 extension tests pass)
+
+---
+
+## Session Workflow Rules
+
+> These are standing instructions that apply to **every** session and task. Save new rules here as they are agreed upon.
+
+### End-of-Session Checklist (always do all three)
+1. **Commit & save** — stage all changed source files and `dist/`, commit with a clear message, move `main` forward.
+2. **Tag reference versions** — when the user marks a state as a reference/baseline, create an annotated git tag (e.g. `git tag -a v1.0 -m "..."`).
+3. **Share the app link** — always end every task/session with the playable frontend URL:
+   - 🎮 **Player app:** `http://localhost:5173`
+   - 🔧 **Backend API:** `http://localhost:8000`
+   - 📖 **Swagger docs:** `http://localhost:8000/docs`
+
+### Skill File Rule
+- **Any instruction or habit saved to AI memory must also be written here.** Memory is ephemeral across tools; this file is the persistent source of truth.
+- Update `version` and `updated` frontmatter on every edit to this file.
+
+### Documentation Rule
+- After completing a significant feature or fix, update this `CHESS_SKILL.md` with: lessons learned, mistakes to avoid, and any new architectural decisions.
+
+### Run Commands (quick reference)
+```powershell
+# Backend
+cd chess-ai-python
+python run.py
+
+# Frontend
+$env:PATH = "C:\Users\Lokesha_Ramappa\tools\node-v24.13.0-win-x64;" + $env:PATH
+cd chess-ai-python\frontend
+npm run dev
+
+# Tests
+python -m pytest tests/ -v
+
+# Build
+npm run build
+```
 
 ---
 
@@ -408,7 +447,7 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
 ### Improvements Required / Suggested
 - **Add a promotion SDD spec** (`SPEC-2026-03-31-009-pawn-promotion.md`) — ✅ Done
 - **E2E tests (Playwright)**: Promotion, castling, en-passant should be covered by automated browser tests before release.
-- **Chess clock sync**: Current clocks are cosmetic (countdown timers); they should be driven by move timestamps from the backend for accurate time tracking.
+- **Chess clock sync**: ✅ Frontend countdown clocks implemented (100ms setInterval, increment support, timeout detection). Long-term: clocks could be driven by move timestamps from the backend for server-authoritative time tracking.
 - **Mobile board width**: `boardWidth={480}` is fixed; should be responsive (`Math.min(window.innerWidth - 32, 480)`).
 - **Tournament state persistence**: In-memory `_TOURNAMENTS` dict is wiped on server restart. Persist to the SQLAlchemy `tournaments` table.
 
