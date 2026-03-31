@@ -73,6 +73,8 @@ export default function App() {
   const [puzzleRating, setPuzzleRating] = useState(1200)
   const [evalHistory, setEvalHistory] = useState<(number | null)[]>([])
   const [showAuth, setShowAuth] = useState(false)
+  const [promotionSquare, setPromotionSquare] = useState<string | null>(null)
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const moveListRef = useRef<HTMLDivElement>(null)
 
   const { user, login, register, logout, refreshRating } = useAuth()
@@ -98,9 +100,23 @@ export default function App() {
   }, [moveHistory])
 
   function onDrop(src: string, tgt: string, piece: string): boolean {
-    const promotion = piece[1]?.toLowerCase() === 'p' &&
-      (tgt[1] === '8' || tgt[1] === '1') ? 'q' : undefined
-    return makePlayerMove(src, tgt, promotion)
+    const isPawn = piece[1]?.toUpperCase() === 'P'
+    const isBackRank = tgt[1] === '8' || tgt[1] === '1'
+    if (isPawn && isBackRank) {
+      setPendingPromotion({ from: src, to: tgt })
+      setPromotionSquare(tgt)
+      return false
+    }
+    return makePlayerMove(src, tgt)
+  }
+
+  function onPromotionPieceSelect(piece?: string): boolean {
+    if (!pendingPromotion) { setPromotionSquare(null); return false }
+    const promoLetter = piece ? piece[1]?.toLowerCase() : 'q'
+    const result = makePlayerMove(pendingPromotion.from, pendingPromotion.to, promoLetter)
+    setPendingPromotion(null)
+    setPromotionSquare(null)
+    return result
   }
 
   function handleReset() {
@@ -222,6 +238,8 @@ export default function App() {
               <Chessboard
                 position={fen}
                 onPieceDrop={onDrop}
+                onPromotionPieceSelect={onPromotionPieceSelect}
+                promotionToSquare={promotionSquare as any}
                 boardOrientation={boardOrientation}
                 customSquareStyles={highlightSquares}
                 boardWidth={480}
