@@ -4,8 +4,8 @@ id: "SKILL-CHESS-AI-PYTHON-2026-03-31-001"
 author: "Chess AI Development Team"
 status: "Completed"
 created: "2026-03-31"
-updated: "2026-03-31 v2.9"
-version: "2.9"
+updated: "2026-03-31 v3.0"
+version: "3.0"
 type: "skill"
 ---
 
@@ -471,7 +471,8 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
 - **Undo / Redo**: ✅ `undoStackRef` stores undone move pairs; undo removes last 2 half-moves (player+AI), redo replays them deterministically.
 - **FIDE 3200 Coach button**: ✅ Calls `/api/games/ai-move` at `super_gm` strength; best move shown as green arrow via `customArrows`.
 - **FIDE review coaching text**: ✅ `getCoachingText()` generates professional-level analysis per move quality, referencing Carlsen/Tal/FIDE methods.
-- **Learn/Academy tab**: ✅ 45 lessons across 5 categories (openings, middlegame, endgame, psychology, thinking). Each has an interactive 200px board, key points list, educational paragraphs, and a world-class player insight. Progress tracked in localStorage.
+- **Learn/Academy tab**: ✅ 60 lessons across 5 categories (openings, middlegame, endgame, psychology, thinking). Each has an interactive 200px board, key points list, educational paragraphs, and a world-class player insight. Progress tracked in localStorage.
+- **Opening Expansion (v3.0)**: ✅ 15 new opening lessons added — 5 intermediate (French, Caro-Kann, King's Indian, London, Dutch) + 5 advanced (Sicilian Dragon, Nimzo-Indian, Grünfeld, Berlin, Catalan) + 5 master/elite (Sicilian Najdorf deep, Queen's Indian, English, Petroff, QGA). Covers FIDE 1200–3800 across all playing styles.
 - **FIDE 3200+ Elite Lessons**: ✅ 20 advanced-level lessons added (v2.9) — 5 per category — covering positional exchange sacrifice, minority attack, two weaknesses principle, triangulation, Q vs R technique, zugzwang, opening novelties, psychological warfare, must-win strategy, prophylaxis at GM level, forcing tree calculation, and more. All world-championship–cited content.
 - **Sound effects**: ✅ `useSound.ts` uses Web Audio API oscillators — move, capture, check, checkmate, draw sounds. Zero external assets. Toggle button in game controls.
 - **Material balance**: ✅ `getMaterialBalance(fen)` + `PieceSymbols` component. Captured pieces shown as Unicode symbols, advantage score (+N) shown when ahead.
@@ -483,13 +484,21 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
 - **Backend restart after route changes**: Any new FastAPI route added requires a backend server restart (`python run.py`) to be loaded. The dev server does NOT hot-reload Python code.
 
 ### Learn Academy Architecture (v4.0)
-- Data file: `frontend/src/components/learn-content.ts` — 45 `Lesson` objects across 5 `Category` types (25 beginner/intermediate + 20 advanced/FIDE 3200+).
+- Data file: `frontend/src/components/learn-content.ts` — 60 `Lesson` objects across 5 `Category` types (20 openings + 10 middlegame + 10 endgame + 10 psychology + 10 thinking).
 - Component: `frontend/src/components/LearnPanel.tsx` — category tabs, level filter, lesson cards, lesson detail with mini board.
 - Board in each lesson: `react-chessboard` at 200px, `arePiecesDraggable={false}`.
 - Completion state: `Set<string>` stored in `localStorage('chess_learn_completed')` — persists across sessions.
 - Level filter: beginner / intermediate / advanced — filters within category.
 - Color scheme: amber=openings, blue=middlegame, green=endgame, purple=psychology, rose=thinking.
 - CATEGORIES updated: each now shows `10 lessons · <range>` in the UI description.
+
+### Opening Lesson Inventory (v3.0) — 20 total
+| ID | Level | Opening |
+|---|---|---|
+| `open-1`…`open-5` | beginner/intermediate | Italian, Ruy Lopez, Sicilian, King's Indian Intro, Queen's Gambit |
+| `open-i1`…`open-i5` | intermediate | French, Caro-Kann, King's Indian Defense, London System, Dutch Defense |
+| `open-a1`…`open-a5` | advanced | Sicilian Dragon, Nimzo-Indian, Grünfeld, Berlin Defense, Catalan |
+| `open-m1`…`open-m5` | advanced (master) | Najdorf Deep Systems, Queen's Indian, English, Petroff, QGA |
 
 ### FIDE 3200+ Elite Lesson Topics (v2.9)
 | Category | Lesson IDs | Key Topics |
