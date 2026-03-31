@@ -295,33 +295,35 @@ export default function App() {
           <div className="flex flex-col items-center justify-center flex-1 px-4 py-4 gap-3">
 
             {/* ── Difficulty bar ─────────────────────────────────── */}
-            <div className="w-full max-w-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Difficulty — tap to change</span>
-                <button onClick={() => setRightTab('settings')} className="text-[10px] text-amber-400 hover:text-amber-300 underline underline-offset-2">All settings ›</button>
+            <div className="w-full max-w-md bg-slate-800/60 border border-slate-700 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-400 uppercase tracking-widest font-bold">⚡ Difficulty — tap to change</span>
+                <button onClick={() => { setRightTab('settings') }} className="text-xs text-amber-400 hover:text-amber-300 font-semibold underline underline-offset-2">All settings ›</button>
               </div>
-              <div className="flex gap-0.5">
+              <div className="flex gap-1">
                 {STRENGTHS.map(opt => (
                   <button key={opt.value} onClick={() => setStrength(opt.value)}
                     title={`${opt.label} — ${opt.desc}`}
                     className={clsx(
-                      'flex-1 flex flex-col items-center py-1 rounded text-[10px] font-medium transition-all',
+                      'flex-1 flex flex-col items-center py-1.5 rounded-lg text-xs font-semibold transition-all',
                       strength === opt.value
-                        ? 'text-slate-900 font-bold'
-                        : 'text-slate-500 hover:text-slate-300 bg-slate-800'
+                        ? 'text-slate-900 shadow-lg scale-105'
+                        : 'text-slate-500 hover:text-slate-200 bg-slate-900 hover:bg-slate-700'
                     )}
                     style={strength === opt.value ? { backgroundColor: opt.color } : {}}>
-                    <span>{opt.icon}</span>
-                    <span className="hidden sm:block truncate w-full text-center px-0.5">{opt.label.split(' ')[0]}</span>
+                    <span className="text-base leading-none">{opt.icon}</span>
+                    <span className="truncate w-full text-center mt-0.5 text-[10px]">{opt.label.split(' ')[0]}</span>
                   </button>
                 ))}
               </div>
-              <div className="mt-1 flex items-center gap-1.5">
-                <span className="text-lg">{selectedStrength.icon}</span>
+              <div className="mt-2.5 flex items-center gap-2 bg-slate-900/60 rounded-lg px-3 py-2">
+                <span className="text-2xl leading-none">{selectedStrength.icon}</span>
                 <div>
-                  <span className="text-sm font-bold" style={{ color: selectedStrength.color }}>{selectedStrength.label}</span>
-                  <span className="text-xs text-slate-400 ml-1.5">{selectedStrength.elo} ELO</span>
-                  <span className="text-xs text-slate-500 ml-1.5">· {selectedStrength.desc}</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-base font-bold" style={{ color: selectedStrength.color }}>{selectedStrength.label}</span>
+                    <span className="text-sm text-slate-400 font-mono">{selectedStrength.elo} ELO</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">{selectedStrength.desc}</p>
                 </div>
               </div>
             </div>
@@ -480,43 +482,55 @@ export default function App() {
 
               {/* Settings */}
               {rightTab === 'settings' && (
-                <div className="space-y-4">
+                <div className="space-y-5">
+
+                  {/* Quick Pick */}
                   <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Quick Pick — Who are you?</p>
-                    <div className="grid grid-cols-2 gap-1 mb-3">
+                    <p className="text-sm font-semibold text-slate-300 mb-1">Who are you?</p>
+                    <p className="text-xs text-slate-500 mb-2">One-tap difficulty preset</p>
+                    <div className="grid grid-cols-2 gap-2">
                       {EXPERIENCE_PRESETS.map(p => (
                         <button key={p.value} onClick={() => setStrength(p.value)}
                           className={clsx(
-                            'flex flex-col items-center py-2 px-1 rounded-lg text-xs font-medium transition-all border',
+                            'flex flex-col items-center py-3 px-2 rounded-xl text-sm font-semibold transition-all border-2',
                             strength === p.value
-                              ? 'bg-amber-500/20 border-amber-500/60 text-amber-400'
-                              : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                              ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                              : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600'
                           )}>
-                          <span className="text-base mb-0.5">{p.icon}</span>
+                          <span className="text-2xl mb-1">{p.icon}</span>
                           <span>{p.label}</span>
-                          <span className="text-slate-500 text-[10px]">{p.desc}</span>
+                          <span className="text-xs text-slate-500 font-normal mt-0.5">{p.desc}</span>
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">AI Strength — Fine Tune</p>
+                  </div>
+
+                  {/* Fine Tune */}
+                  <div>
+                    <p className="text-sm font-semibold text-slate-300 mb-1">AI Strength</p>
+                    <p className="text-xs text-slate-500 mb-2">Fine-tune the difficulty level</p>
                     {(['Casual','Club','Tournament','Elite'] as const).map(cat => {
                       const catItems = STRENGTHS.filter(s => s.category === cat)
                       const catColors: Record<string,string> = { Casual:'text-green-400', Club:'text-yellow-400', Tournament:'text-red-400', Elite:'text-cyan-400' }
+                      const catBg: Record<string,string> = { Casual:'bg-green-400/10', Club:'bg-yellow-400/10', Tournament:'bg-red-400/10', Elite:'bg-cyan-400/10' }
                       return (
-                        <div key={cat} className="mb-2">
-                          <p className={clsx('text-[10px] font-bold uppercase tracking-widest mb-1', catColors[cat])}>{cat}</p>
-                          <div className="space-y-1">
+                        <div key={cat} className="mb-3">
+                          <p className={clsx('text-xs font-bold uppercase tracking-widest mb-1.5 px-1', catColors[cat])}>{cat}</p>
+                          <div className="space-y-1.5">
                             {catItems.map(opt => (
                               <button key={opt.value} onClick={() => setStrength(opt.value)}
-                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all bg-slate-800 hover:bg-slate-700 text-left"
-                                style={strength === opt.value ? { backgroundColor: opt.color + '22', border: `1px solid ${opt.color}66` } : { border: '1px solid transparent' }}>
-                                <span className="text-base shrink-0">{opt.icon}</span>
+                                className={clsx('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left border-2',
+                                  strength === opt.value
+                                    ? `${catBg[cat]} border-opacity-60`
+                                    : 'bg-slate-800 border-transparent hover:bg-slate-700')}
+                                style={strength === opt.value ? { borderColor: opt.color + '88' } : {}}>
+                                <span className="text-xl shrink-0">{opt.icon}</span>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between">
-                                    <span className="font-medium text-sm" style={strength === opt.value ? { color: opt.color } : {}}>{opt.label}</span>
-                                    <span className="text-xs text-slate-500 font-mono shrink-0 ml-1">{opt.elo}</span>
+                                    <span className="font-semibold text-sm" style={strength === opt.value ? { color: opt.color } : { color: '#e2e8f0' }}>{opt.label}</span>
+                                    <span className="text-xs text-slate-400 font-mono shrink-0 ml-1">{opt.elo}</span>
                                   </div>
-                                  <p className="text-[10px] text-slate-500 truncate">{opt.desc}</p>
+                                  <p className="text-xs text-slate-500 mt-0.5">{opt.desc}</p>
                                 </div>
                               </button>
                             ))}
@@ -525,49 +539,59 @@ export default function App() {
                       )
                     })}
                   </div>
+
+                  {/* Play As */}
                   <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Play As</p>
+                    <p className="text-sm font-semibold text-slate-300 mb-2">Play As</p>
                     <div className="flex gap-2">
                       {(['white', 'black'] as const).map(c => (
                         <button key={c} onClick={() => { setPlayerColor(c); setBoardOrientation(c); handleReset() }}
-                          className={clsx('flex-1 py-2 rounded-lg text-sm font-medium capitalize',
-                            playerColor === c ? 'bg-amber-500 text-slate-900' : 'bg-slate-800 text-slate-300 hover:bg-slate-700')}>
-                          {c === 'white' ? '♔ White' : '♚ Black'}
+                          className={clsx('flex-1 py-3 rounded-xl text-sm font-semibold capitalize border-2 transition-all',
+                            playerColor === c
+                              ? 'bg-amber-500 text-slate-900 border-amber-400'
+                              : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700')}>
+                          {c === 'white' ? '♔  White' : '♚  Black'}
                         </button>
                       ))}
                     </div>
                   </div>
+
+                  {/* Response Speed */}
                   <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Response Speed</p>
-                    <div className="flex gap-1">
-                      {([{ms:2000,label:'Fast',sub:'~2s'},{ms:5000,label:'Balanced',sub:'~5s'},{ms:8000,label:'Deep',sub:'~8s'}] as const).map(opt => (
+                    <p className="text-sm font-semibold text-slate-300 mb-1">Response Speed</p>
+                    <p className="text-xs text-slate-500 mb-2">How long AI thinks per move</p>
+                    <div className="flex gap-2">
+                      {([{ms:2000,label:'Fast',sub:'~2s',icon:'⚡'},{ms:5000,label:'Balanced',sub:'~5s',icon:'⚖️'},{ms:8000,label:'Deep',sub:'~8s',icon:'🔬'}] as const).map(opt => (
                         <button key={opt.ms} onClick={() => setThinkingMs(opt.ms)}
-                          className={clsx('flex-1 flex flex-col items-center py-2 rounded-lg text-xs font-medium transition-all border',
+                          className={clsx('flex-1 flex flex-col items-center py-3 rounded-xl text-sm font-semibold transition-all border-2',
                             thinkingMs === opt.ms
-                              ? 'bg-amber-500/20 border-amber-500/60 text-amber-400'
-                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200')}>
+                              ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200')}>
+                          <span className="text-xl mb-1">{opt.icon}</span>
                           <span>{opt.label}</span>
-                          <span className="text-slate-500 text-[10px]">{opt.sub}</span>
+                          <span className="text-xs text-slate-500 font-normal">{opt.sub}</span>
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-slate-600 mt-1.5">Applied at next move. Depth is capped by strength level.</p>
                   </div>
+
+                  {/* Time Control */}
                   <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Time Control</p>
-                    <p className="text-xs text-slate-600 mb-2">Changing resets the clock. Current: <span className="text-amber-400 font-bold">{timeControl.category} {timeControl.label}</span></p>
+                    <p className="text-sm font-semibold text-slate-300 mb-1">Time Control</p>
+                    <p className="text-xs text-slate-500 mb-2">Selected: <span className="text-amber-400 font-bold">{timeControl.category} · {timeControl.label}</span> — changing resets clock</p>
                     {(['Bullet','Blitz','Rapid','Classical'] as const).map(cat => {
                       const catColor: Record<string,string> = { Bullet:'text-red-400', Blitz:'text-orange-400', Rapid:'text-yellow-400', Classical:'text-green-400' }
+                      const catIcon: Record<string,string> = { Bullet:'🔫', Blitz:'⚡', Rapid:'🏃', Classical:'♛' }
                       return (
-                        <div key={cat} className="mb-2">
-                          <p className={clsx('text-[10px] font-bold uppercase tracking-widest mb-1', catColor[cat])}>{cat}</p>
-                          <div className="flex flex-wrap gap-1">
+                        <div key={cat} className="mb-3">
+                          <p className={clsx('text-xs font-bold uppercase tracking-widest mb-1.5', catColor[cat])}>{catIcon[cat]} {cat}</p>
+                          <div className="flex flex-wrap gap-1.5">
                             {TIME_CONTROLS.filter(t => t.category === cat).map(tc => (
                               <button key={tc.label} onClick={() => setTimeControl(tc)}
-                                className={clsx('px-2 py-1 rounded text-xs font-mono font-medium transition-all border',
+                                className={clsx('px-3 py-1.5 rounded-lg text-sm font-mono font-semibold transition-all border-2',
                                   timeControl.label === tc.label
-                                    ? 'bg-amber-500/20 border-amber-500/60 text-amber-400'
-                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200')}>
+                                    ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200')}>
                                 {tc.label}
                               </button>
                             ))}
@@ -576,14 +600,17 @@ export default function App() {
                       )
                     })}
                   </div>
-                  <div className="glass rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-amber-400 font-medium">Multi-Agent System</p>
-                    <div className="space-y-1 text-xs text-slate-400">
-                      <div className="flex items-center gap-2"><BookOpen className="w-3 h-3 text-green-400" />Opening Agent — Polyglot book</div>
-                      <div className="flex items-center gap-2"><Brain className="w-3 h-3 text-blue-400" />Search Agent — Alpha-Beta PVS</div>
-                      <div className="flex items-center gap-2"><TrendingUp className="w-3 h-3 text-purple-400" />Endgame Agent — Syzygy TB</div>
+
+                  {/* Multi-Agent Info */}
+                  <div className="bg-slate-800/80 border border-slate-600 rounded-xl p-4 space-y-2">
+                    <p className="text-sm font-semibold text-amber-400">🤖 Multi-Agent System</p>
+                    <div className="space-y-2 text-sm text-slate-300">
+                      <div className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-green-400 shrink-0" /><span>Opening Agent <span className="text-slate-500">— Polyglot book</span></span></div>
+                      <div className="flex items-center gap-2"><Brain className="w-4 h-4 text-blue-400 shrink-0" /><span>Search Agent <span className="text-slate-500">— Alpha-Beta PVS</span></span></div>
+                      <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-purple-400 shrink-0" /><span>Endgame Agent <span className="text-slate-500">— Syzygy TB</span></span></div>
                     </div>
                   </div>
+
                 </div>
               )}
             </div>
