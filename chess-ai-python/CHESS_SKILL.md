@@ -4,8 +4,8 @@ id: "SKILL-CHESS-AI-PYTHON-2026-03-31-001"
 author: "Chess AI Development Team"
 status: "Completed"
 created: "2026-03-31"
-updated: "2026-03-31 v2.8"
-version: "2.8"
+updated: "2026-03-31 v2.9"
+version: "2.9"
 type: "skill"
 ---
 
@@ -471,22 +471,33 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
 - **Undo / Redo**: ✅ `undoStackRef` stores undone move pairs; undo removes last 2 half-moves (player+AI), redo replays them deterministically.
 - **FIDE 3200 Coach button**: ✅ Calls `/api/games/ai-move` at `super_gm` strength; best move shown as green arrow via `customArrows`.
 - **FIDE review coaching text**: ✅ `getCoachingText()` generates professional-level analysis per move quality, referencing Carlsen/Tal/FIDE methods.
-- **Learn/Academy tab**: ✅ 25 lessons across 5 categories (openings, middlegame, endgame, psychology, thinking). Each has an interactive 200px board, key points list, educational paragraphs, and a world-class player insight. Progress tracked in localStorage.
+- **Learn/Academy tab**: ✅ 45 lessons across 5 categories (openings, middlegame, endgame, psychology, thinking). Each has an interactive 200px board, key points list, educational paragraphs, and a world-class player insight. Progress tracked in localStorage.
+- **FIDE 3200+ Elite Lessons**: ✅ 20 advanced-level lessons added (v2.9) — 5 per category — covering positional exchange sacrifice, minority attack, two weaknesses principle, triangulation, Q vs R technique, zugzwang, opening novelties, psychological warfare, must-win strategy, prophylaxis at GM level, forcing tree calculation, and more. All world-championship–cited content.
 - **Sound effects**: ✅ `useSound.ts` uses Web Audio API oscillators — move, capture, check, checkmate, draw sounds. Zero external assets. Toggle button in game controls.
 - **Material balance**: ✅ `getMaterialBalance(fen)` + `PieceSymbols` component. Captured pieces shown as Unicode symbols, advantage score (+N) shown when ahead.
 - **Opening name badge**: ✅ `fetchOpening()` in `useChessGame.ts` calls `/api/openings/classify-moves` after each move during first 22 moves. Displays ECO code + name in an amber badge above the board.
 - **git tag v3.0-stable**: ✅ Tagged as reference baseline before v4.0 development.
+- **Learn tab lesson count label**: CATEGORIES now shows `10 lessons · <range>` — hardcoded string. Should compute count dynamically from `LESSONS.filter(l => l.category === id).length`.
 - **Mobile board width**: `boardWidth={480}` is fixed; should be responsive (`Math.min(window.innerWidth - 32, 480)`).
 - **Tournament state persistence**: In-memory `_TOURNAMENTS` dict is wiped on server restart. Persist to the SQLAlchemy `tournaments` table.
 - **Backend restart after route changes**: Any new FastAPI route added requires a backend server restart (`python run.py`) to be loaded. The dev server does NOT hot-reload Python code.
 
 ### Learn Academy Architecture (v4.0)
-- Data file: `frontend/src/components/learn-content.ts` — 25 `Lesson` objects across 5 `Category` types.
+- Data file: `frontend/src/components/learn-content.ts` — 45 `Lesson` objects across 5 `Category` types (25 beginner/intermediate + 20 advanced/FIDE 3200+).
 - Component: `frontend/src/components/LearnPanel.tsx` — category tabs, level filter, lesson cards, lesson detail with mini board.
 - Board in each lesson: `react-chessboard` at 200px, `arePiecesDraggable={false}`.
 - Completion state: `Set<string>` stored in `localStorage('chess_learn_completed')` — persists across sessions.
 - Level filter: beginner / intermediate / advanced — filters within category.
 - Color scheme: amber=openings, blue=middlegame, green=endgame, purple=psychology, rose=thinking.
+- CATEGORIES updated: each now shows `10 lessons · <range>` in the UI description.
+
+### FIDE 3200+ Elite Lesson Topics (v2.9)
+| Category | Lesson IDs | Key Topics |
+|---|---|---|
+| Middlegame | mid-e1…mid-e5 | Positional Exchange Sacrifice, Minority Attack, Two Weaknesses Principle, Dynamic Piece Sacrifice, Piece Domination & Restraint |
+| Endgame | end-e1…end-e5 | Triangulation & Corresponding Squares, Queen vs Rook, Rook Mastery Beyond Philidor, Zugzwang in Complex Endgames, Complex Endgame Decision-Making |
+| Psychology | psy-e1…psy-e5 | Opening Preparation & Novelties, Psychological Warfare at Elite Level, Must-Win Situation, Thinking on Opponent's Time, Bounce-Back Mentality |
+| Thinking | think-e1…think-e5 | Dynamic Evaluation, Mastering the Initiative, The Forcing Tree (15+ moves), Prophylaxis at GM Level, The Principle of Two Plans |
 
 ### Sound Architecture (v4.0)
 - File: `frontend/src/hooks/useSound.ts`
