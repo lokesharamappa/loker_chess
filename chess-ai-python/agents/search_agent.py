@@ -17,14 +17,14 @@ from core.transposition_table import TranspositionTable
 
 
 STRENGTH_PROFILES: dict[str, dict] = {
-    "beginner":    {"elo": 800,  "depth": 2,  "time_ms": 100,   "random_pct": 0.40},
-    "novice":      {"elo": 1200, "depth": 4,  "time_ms": 300,   "random_pct": 0.20},
-    "intermediate":{"elo": 1600, "depth": 6,  "time_ms": 1000,  "random_pct": 0.08},
-    "advanced":    {"elo": 2000, "depth": 10, "time_ms": 2000,  "random_pct": 0.03},
-    "expert":      {"elo": 2400, "depth": 14, "time_ms": 3000,  "random_pct": 0.01},
-    "master":      {"elo": 2600, "depth": 18, "time_ms": 5000,  "random_pct": 0.005},
-    "grandmaster": {"elo": 2800, "depth": 22, "time_ms": 8000,  "random_pct": 0.001},
-    "super_gm":    {"elo": 3200, "depth": 30, "time_ms": 15000, "random_pct": 0.0},
+    "beginner":    {"elo": 800,  "depth": 2,  "time_ms": 100,  "random_pct": 0.40},
+    "novice":      {"elo": 1200, "depth": 4,  "time_ms": 300,  "random_pct": 0.20},
+    "intermediate":{"elo": 1600, "depth": 6,  "time_ms": 800,  "random_pct": 0.08},
+    "advanced":    {"elo": 2000, "depth": 10, "time_ms": 1500, "random_pct": 0.03},
+    "expert":      {"elo": 2400, "depth": 12, "time_ms": 2000, "random_pct": 0.01},
+    "master":      {"elo": 2600, "depth": 14, "time_ms": 2500, "random_pct": 0.005},
+    "grandmaster": {"elo": 2800, "depth": 16, "time_ms": 3000, "random_pct": 0.001},
+    "super_gm":    {"elo": 3200, "depth": 22, "time_ms": 5000, "random_pct": 0.0},
 }
 
 

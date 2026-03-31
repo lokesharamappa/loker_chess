@@ -38,7 +38,7 @@ export type Strength =
   | 'beginner' | 'novice' | 'intermediate' | 'advanced'
   | 'expert' | 'master' | 'grandmaster' | 'super_gm'
 
-export function useChessGame(playerColor: 'white' | 'black', strength: Strength) {
+export function useChessGame(playerColor: 'white' | 'black', strength: Strength, thinkingMs = 2000) {
   const [game, setGame] = useState(new Chess())
   const [fen, setFen] = useState(new Chess().fen())
   const [moveHistory, setMoveHistory] = useState<string[]>([])
@@ -60,7 +60,7 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength)
       const res = await fetch(`${API}/api/games/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fen: currentFen, depth: 16, time_limit_ms: 2500, multi_pv: 3 }),
+        body: JSON.stringify({ fen: currentFen, depth: 16, time_limit_ms: Math.min(thinkingMs, 2500), multi_pv: 3 }),
       })
       if (!res.ok) return
       const data: Analysis = await res.json()
@@ -78,7 +78,7 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength)
         const res = await fetch(`${API}/api/games/ai-move`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fen: currentFen, strength, time_limit_ms: 5000 }),
+          body: JSON.stringify({ fen: currentFen, strength, time_limit_ms: thinkingMs }),
           signal: abortRef.current.signal,
         })
         if (!res.ok) return

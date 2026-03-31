@@ -73,6 +73,7 @@ export default function App() {
   const [puzzleRating, setPuzzleRating] = useState(1200)
   const [evalHistory, setEvalHistory] = useState<(number | null)[]>([])
   const [showAuth, setShowAuth] = useState(false)
+  const [thinkingMs, setThinkingMs] = useState(2000)
   const [promotionSquare, setPromotionSquare] = useState<string | null>(null)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const moveListRef = useRef<HTMLDivElement>(null)
@@ -82,7 +83,7 @@ export default function App() {
   const {
     game, fen, moveHistory, evalCp, analysis, aiInfo,
     isThinking, gameOver, highlightSquares, makePlayerMove, reset,
-  } = useChessGame(playerColor, strength)
+  } = useChessGame(playerColor, strength, thinkingMs)
 
   const selectedStrength = STRENGTHS.find(s => s.value === strength)!
   const isWhiteTurn = game.turn() === 'w'
@@ -402,6 +403,22 @@ export default function App() {
                         </button>
                       ))}
                     </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Response Speed</p>
+                    <div className="flex gap-1">
+                      {([{ms:1000,label:'Fast',sub:'~1s'},{ms:2000,label:'Balanced',sub:'~2s'},{ms:4000,label:'Deep',sub:'~4s'}] as const).map(opt => (
+                        <button key={opt.ms} onClick={() => setThinkingMs(opt.ms)}
+                          className={clsx('flex-1 flex flex-col items-center py-2 rounded-lg text-xs font-medium transition-all border',
+                            thinkingMs === opt.ms
+                              ? 'bg-amber-500/20 border-amber-500/60 text-amber-400'
+                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200')}>
+                          <span>{opt.label}</span>
+                          <span className="text-slate-500 text-[10px]">{opt.sub}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1.5">Applied at next move. Depth is capped by strength level.</p>
                   </div>
                   <div className="glass rounded-lg p-3 space-y-1">
                     <p className="text-xs text-amber-400 font-medium">Multi-Agent System</p>
