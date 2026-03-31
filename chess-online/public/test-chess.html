@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chess App Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>♟️ Chess App Test & Instructions</h1>
+    
+    <div class="test-result info">
+        <strong>Step 1:</strong> Click the button below to open the chess app in a new tab
+    </div>
+    
+    <button onclick="openChessApp()">🎮 Open Chess App</button>
+    
+    <div class="test-result info">
+        <strong>Step 2:</strong> Follow the step-by-step instructions below to play chess
+    </div>
+
+    <h2>📋 Step-by-Step Chess Instructions</h2>
+    
+    <div class="test-result success">
+        <h3>1. Start the Game</h3>
+        <ul>
+            <li>Open the chess app</li>
+            <li>Choose "🤖 Play vs Computer" or "👥 Play vs Friend"</li>
+            <li>If playing vs Computer, select difficulty: Easy, Medium, or Hard</li>
+            <li>The game board will appear with chess pieces</li>
+        </ul>
+    </div>
+    
+    <div class="test-result success">
+        <h3>2. Understand the Board</h3>
+        <ul>
+            <li>White pieces are at the bottom, Black pieces at the top</li>
+            <li>You play as White (bottom) when vs Computer</li>
+            <li>Each piece type: King (♔♚), Queen (♕♛), Rook (♖♜), Bishop (♗♝), Knight (♘♞), Pawn (♙♟)</li>
+            <li>The board shows "Your turn" or "Computer's turn" status</li>
+        </ul>
+    </div>
+    
+    <div class="test-result success">
+        <h3>3. Make a Move</h3>
+        <ul>
+            <li>Click and drag any White piece to move it</li>
+            <li>Valid destination squares will be highlighted</li>
+            <li>Release the piece on a valid square</li>
+            <li>Illegal moves will snap back to original position</li>
+            <li>The move will be recorded and shown in status</li>
+        </ul>
+    </div>
+    
+    <div class="test-result success">
+        <h3>4. Computer Response</h3>
+        <ul>
+            <li>After your move, Computer will automatically move</li>
+            <li>Computer's move appears after ~1 second</li>
+            <li>Game status shows "Computer played: [move]"</li>
+            <li>Then it's your turn again</li>
+        </ul>
+    </div>
+    
+    <div class="test-result success">
+        <h3>5. Game Controls</h3>
+        <ul>
+            <li><strong>↶ Undo</strong> - Undo the last move (yours + computer's)</li>
+            <li><strong>🔄 Reset</strong> - Start a new game with same settings</li>
+            <li><strong>🏠 Menu</strong> - Return to main menu</li>
+            <li><strong>New Game</strong> - Start fresh from header</li>
+        </ul>
+    </div>
+    
+    <div class="test-result success">
+        <h3>6. Winning the Game</h3>
+        <ul>
+            <li>Checkmate: Trap the opponent's King - you win!</li>
+            <li>Stalemate: No legal moves - draw!</li>
+            <li>Check: King is under attack (warning)</li>
+            <li>Game ends automatically when checkmate/draw occurs</li>
+        </ul>
+    </div>
+
+    <h2>🧪 Quick Test Moves</h2>
+    
+    <div class="test-result info">
+        <h3>Try These First Moves:</h3>
+        <ol>
+            <li>Move White pawn from e2 to e4 (drag forward 2 squares)</li>
+            <li>Computer will respond (usually with e5 or d6)</li>
+            <li>Move White Knight from g1 to f3 (L-shape move)</li>
+            <li>Continue playing - the game should flow smoothly!</li>
+        </ol>
+    </div>
+
+    <h2>🐛 Troubleshooting</h2>
+    
+    <div class="test-result error">
+        <h3>If Pieces Don't Move:</h3>
+        <ul>
+            <li>Make sure you're dragging White pieces (bottom)</li>
+            <li>Check if it's your turn (status shows)</li>
+            <li>Try a different piece - some pieces have limited moves</li>
+            <li>Refresh the page and start a new game</li>
+        </ul>
+    </div>
+
+    <script>
+        function openChessApp() {
+            window.open('chess.html', '_blank');
+        }
+        
+        // Test basic functionality
+        console.log('Chess test page loaded');
+        console.log('Click "Open Chess App" to start testing');
+    </script>
+</body>
+</html>

@@ -85,11 +85,13 @@ python -m pytest tests/ -k "test_fifo" -v --tb=short
 ```
 
 ### TDD Rules for New Features
-1. **Write the test FIRST** in the appropriate `tests/test_*.py` file
-2. Run tests — confirm the new test FAILS (red)
-3. Implement the feature in the source module
-4. Run tests — confirm the new test PASSES (green)
-5. Refactor if needed, re-run tests to confirm no regressions
+1. **Write Specification FIRST** using `/sdd` workflow
+2. **Write the test FIRST** in the appropriate `tests/test_*.py` file
+3. Run tests — confirm the new test FAILS (red)
+4. Implement the feature in the source module
+5. Run tests — confirm the new test PASSES (green)
+6. Refactor if needed, re-run tests to confirm no regressions
+7. **Update Specification** if implementation differs from original design
 
 ### Test File Map
 | Source Module | Test File |
@@ -107,3 +109,44 @@ python -m pytest tests/ -k "test_fifo" -v --tb=short
 ### Coverage Target
 - Minimum: 50% (enforced by `.coveragerc`)
 - Goal: 80%+ for `utils/` modules
+
+## Specification Driven Development (SDD)
+
+All new features MUST follow SDD before TDD. Use `/sdd` workflow for specifications.
+
+// turbo
+13. Create new specification:
+```
+node .windsurf/tools/create-spec.js create --type feature --title "Feature Title"
+```
+
+// turbo
+14. Validate specification:
+```
+node .windsurf/tools/validate-spec.js --spec specs/features/SPEC-YYYY-MM-DD-NNN.md
+```
+
+// turbo
+15. Generate tests from specification:
+```
+node .windsurf/tools/generate-tests.js --spec specs/features/SPEC-YYYY-MM-DD-NNN.md
+```
+
+// turbo
+16. List all specifications:
+```
+node .windsurf/tools/create-spec.js list
+```
+
+### SDD Rules
+1. **No Code Without Specification**: No implementation without approved specification
+2. **Specification is Truth**: Specification is single source of truth for requirements
+3. **Test Against Spec**: Tests verify implementation meets specification
+4. **Keep Spec Updated**: Update specification when implementation changes
+
+### Integration with TDD
+1. Create specification (SDD)
+2. Generate tests from specification
+3. Run TDD cycle with generated tests
+4. Implement feature based on specification
+5. Update specification if needed

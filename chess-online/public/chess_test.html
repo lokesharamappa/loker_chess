@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Chess Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .board { display: grid; grid-template-columns: repeat(8, 60px); gap: 0; border: 2px solid #333; }
+        .square { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 36px; cursor: pointer; }
+        .square:nth-child(even) { background: #f0d9b5; }
+        .square:nth-child(odd) { background: #b58863; }
+        .square.selected { background: #f6f669; }
+        .square.valid { background: #aaffaa; }
+        .status { margin: 20px 0; padding: 10px; background: #f0f0f0; }
+        .debug { margin: 20px 0; padding: 10px; background: #ffe0e0; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>Chess Test - Pawn Movement</h1>
+    <div class="status" id="status">Click a white pawn to test movement</div>
+    <div class="debug" id="debug">Debug info will appear here</div>
+    <div class="board" id="board"></div>
+
+    <script>
+        // Simple chess board for testing
+        const board = [
+            ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+            ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+            [null, null, null, null, null, null, null, null],
+            [null, null, null, null, null, null, null, null],
+            [null, null, null, null, null, null, null, null],
+            [null, null, null, null, null, null, null, null],
+            ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+            ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+        ];
+
+        const pieces = {
+            'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+            'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
+        };
+
+        let selectedSquare = null;
+        let currentTurn = 'white';
+
+        function renderBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const square = document.createElement('div');
+                    square.className = 'square';
+                    square.dataset.row = row;
+                    square.dataset.col = col;
+                    
+                    const piece = board[row][col];
+                    if (piece) {
+                        square.textContent = pieces[piece];
+                    }
+                    
+                    square.onclick = () => handleClick(row, col);
+                    boardElement.appendChild(square);
+                }
+            }
+        }
+
+        function handleClick(row, col) {
+            const piece = board[row][col];
+            const pieceColor = piece ? (piece === piece.toUpperCase() ? 'white' : 'black') : null;
+            
+            document.getElementById('debug').innerHTML = `Clicked: row=${row}, col=${col}, piece=${piece}, color=${pieceColor}, turn=${currentTurn}`;
+            
+            if (selectedSquare === null) {
+                // Select piece
+                if (piece && pieceColor === currentTurn) {
+                    selectedSquare = { row, col };
+                    highlightSquare(row, col, 'selected');
+                    showValidMoves(row, col);
+                    document.getElementById('status').textContent = `Selected ${pieceColor} ${piece} at ${getSquareName(row, col)}`;
+                } else {
+                    document.getElementById('status').textContent = 'Not your turn or no piece!';
+                }
+            } else {
+                // Move piece
+                if (isValidMove(selectedSquare.row, selectedSquare.col, row, col)) {
+                    makeMove(selectedSquare.row, selectedSquare.col, row, col);
+                } else {
+                    document.getElementById('status').textContent = 'Invalid move!';
+                }
+                clearHighlights();
+                selectedSquare = null;
+            }
+        }
+
+        function getSquareName(row, col) {
+            const files = 'abcdefgh';
+            return files[col] + (8 - row);
+        }
+
+        function highlightSquare(row, col, className) {
+            const squares = document.querySelectorAll('.square');
+            squares[row * 8 + col].classList.add(className);
+        }
+
+        function showValidMoves(fromRow, fromCol) {
+            let count = 0;
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    if (isValidMove(fromRow, fromCol, row, col)) {
+                        highlightSquare(row, col, 'valid');
+                        count++;
+                    }
+                }
+            }
+            document.getElementById('debug').innerHTML += `<br>Found ${count} valid moves`;
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.square').forEach(square => {
+                square.classList.remove('selected', 'valid');
+            });
+        }
+
+        function isValidMove(fromRow, fromCol, toRow, toCol) {
+            const piece = board[fromRow][fromCol];
+            const targetPiece = board[toRow][toCol];
+            
+            if (!piece) return false;
+            
+            // Can't capture own piece
+            if (targetPiece) {
+                const pieceColor = piece === piece.toUpperCase() ? 'white' : 'black';
+                const targetColor = targetPiece === targetPiece.toUpperCase() ? 'white' : 'black';
+                if (pieceColor === targetColor) return false;
+            }
+            
+            const pieceType = piece.toLowerCase();
+            const rowDiff = toRow - fromRow;
+            const colDiff = toCol - fromCol;
+            
+            document.getElementById('debug').innerHTML += `<br>Checking ${pieceType}: rowDiff=${rowDiff}, colDiff=${colDiff}`;
+            
+            switch (pieceType) {
+                case 'p': // Pawn
+                    const direction = piece === 'P' ? 1 : -1;
+                    const startRow = piece === 'P' ? 1 : 6;
+                    
+                    // Forward move
+                    if (colDiff === 0 && !targetPiece) {
+                        if (rowDiff === direction) {
+                            document.getElementById('debug').innerHTML += '<br>Valid pawn forward move';
+                            return true;
+                        }
+                        if (fromRow === startRow && rowDiff === 2 * direction && !board[fromRow + direction][fromCol]) {
+                            document.getElementById('debug').innerHTML += '<br>Valid pawn double move';
+                            return true;
+                        }
+                    }
+                    
+                    // Capture
+                    if (Math.abs(colDiff) === 1 && Math.abs(rowDiff) === 1 && targetPiece) {
+                        if (rowDiff === direction) {
+                            document.getElementById('debug').innerHTML += '<br>Valid pawn capture';
+                            return true;
+                        }
+                    }
+                    
+                    document.getElementById('debug').innerHTML += '<br>Invalid pawn move';
+                    return false;
+                    
+                case 'n': // Knight
+                    return (Math.abs(rowDiff) === 2 && Math.abs(colDiff) === 1) || (Math.abs(rowDiff) === 1 && Math.abs(colDiff) === 2);
+                    
+                default:
+                    return false;
+            }
+        }
+
+        function makeMove(fromRow, fromCol, toRow, toCol) {
+            const piece = board[fromRow][fromCol];
+            const targetPiece = board[toRow][toCol];
+            
+            board[toRow][toCol] = piece;
+            board[fromRow][fromCol] = null;
+            
+            const moveNotation = getMoveNotation(piece, fromRow, fromCol, toRow, toCol, targetPiece);
+            document.getElementById('status').textContent = `Move played: ${moveNotation}`;
+            document.getElementById('debug').innerHTML += `<br>Move executed: ${moveNotation}`;
+            
+            currentTurn = currentTurn === 'white' ? 'black' : 'white';
+            renderBoard();
+        }
+
+        function getMoveNotation(piece, fromRow, fromCol, toRow, toCol, captured) {
+            const files = 'abcdefgh';
+            const pieceSymbol = piece.toLowerCase() === 'p' ? '' : piece.toUpperCase();
+            const capture = captured ? 'x' : '';
+            return `${pieceSymbol}${files[fromCol]}${8 - fromRow}${capture}${files[toCol]}${8 - toRow}`;
+        }
+
+        // Initialize
+        renderBoard();
+        document.getElementById('status').textContent = 'Test ready! Click a white pawn to test movement.';
+    </script>
+</body>
+</html>
