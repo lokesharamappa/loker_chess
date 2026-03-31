@@ -4,8 +4,8 @@ id: "SKILL-CHESS-AI-PYTHON-2026-03-31-001"
 author: "Chess AI Development Team"
 status: "Completed"
 created: "2026-03-31"
-updated: "2026-03-31 v2.6"
-version: "2.6"
+updated: "2026-03-31 v2.7"
+version: "2.7"
 type: "skill"
 ---
 
@@ -467,9 +467,25 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
 - **Chess clock sync**: ✅ Frontend countdown clocks implemented (100ms setInterval, increment support, timeout detection). Long-term: clocks could be driven by move timestamps from the backend for server-authoritative time tracking.
 - **Game review / analysis**: ✅ Implemented chess.com-style game review (accuracy %, move quality, board navigator).
 - **Resign / Draw**: ✅ Fixed — buttons wired with proper game-state guards.
+- **Board lock after game over**: ✅ `isDraggablePiece` returns false when `displayGameOver`, `isReviewMode`, or `isThinking`; also blocks opponent pieces at all times.
+- **Undo / Redo**: ✅ `undoStackRef` stores undone move pairs; undo removes last 2 half-moves (player+AI), redo replays them deterministically.
+- **FIDE 3200 Coach button**: ✅ Calls `/api/games/ai-move` at `super_gm` strength; best move shown as green arrow via `customArrows`.
+- **FIDE review coaching text**: ✅ `getCoachingText()` generates professional-level analysis per move quality, referencing Carlsen/Tal/FIDE methods.
 - **Mobile board width**: `boardWidth={480}` is fixed; should be responsive (`Math.min(window.innerWidth - 32, 480)`).
 - **Tournament state persistence**: In-memory `_TOURNAMENTS` dict is wiped on server restart. Persist to the SQLAlchemy `tournaments` table.
 - **Backend restart after route changes**: Any new FastAPI route added requires a backend server restart (`python run.py`) to be loaded. The dev server does NOT hot-reload Python code.
+
+### Move History Root Cause (Session 2026-03-31)
+- **Bug**: `fetchAIMove` created `new Chess(currentFen)` — FEN does not carry move history. After every AI response, `newGame.history()` returned only `[aiMove]` → Moves tab showed exactly 1 move.
+- **Fix**: Added `moveHistoryUCIRef = useRef<string[]>([])` as the single authoritative UCI source. Both `makePlayerMove` and `fetchAIMove` now rebuild `new Chess()` from scratch by replaying `moveHistoryUCIRef.current` before adding the new move. History is preserved for the full game.
+- **Lesson**: Never call `new Chess(fen)` for a game object you want to track history on — FEN is a snapshot, not a history. Use `new Chess()` + replay from a persistent moves array.
+
+### Anonymous Game Saving Architecture
+- Games are saved via `POST /api/history/quick-save` — no login required.
+- A guest `PlayerORM` is created using a UUID `session_id` stored in `localStorage`.
+- A fixed `_AI_PLAYER_ID = "00000000-0000-0000-0000-000000000001"` player record is created on first save.
+- `saveGame()` in the hook fires automatically on every game ending (checkmate, stalemate, resign, draw, timeout) using `gameSavedRef` to prevent duplicate saves.
+- `GameHistoryPanel` auto-loads games from `localStorage` session_id on mount and refreshes on `chess_game_saved` custom event.
 
 ---
 
