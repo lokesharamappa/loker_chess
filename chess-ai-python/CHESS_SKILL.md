@@ -5,7 +5,7 @@ author: "Chess AI Development Team"
 status: "Completed"
 created: "2026-03-31"
 updated: "2026-03-31"
-version: "2.0"
+version: "2.1"
 type: "skill"
 ---
 
@@ -361,6 +361,40 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
 | `nnue_evaluator.py`   | `save/load` implicit byte order        | Explicit `<I` + `arr.nbytes`            |
 | `api/auth.py`         | `passlib[bcrypt]` incompatible with Python 3.13 | Switched to `pbkdf2_sha256`  |
 | `GameHistoryPanel.tsx`| `fen_after` missing for annotated PGNs | Reconstruct FENs via `chess.js`          |
+| `App.tsx`             | Pawn promotion hardcoded to queen; piece picker never shown | Store `pendingPromotion`, set `promotionToSquare`, wire `onPromotionPieceSelect` → `makePlayerMove(from, to, piece[1].toLowerCase())` |
+
+---
+
+## Lessons Learned
+
+### Bugs Introduced by Over-Simplification
+- **Promotion hardcoded to queen**: `onDrop` used a ternary `isPawn && isBackRank ? 'q' : undefined` that silently auto-promoted without showing a dialog. Always wire the library's native callback (`onPromotionPieceSelect`) rather than guessing the intended piece.
+- **`datetime.utcnow()` deprecation**: Python 3.12+ deprecated `datetime.utcnow()`; import `timezone` and use `datetime.now(timezone.utc)` from the start — avoids runtime warnings and future breakage.
+- **`passlib[bcrypt]` on Python 3.13**: `bcrypt` has a known incompatibility with Python 3.13 at import time. Prefer `pbkdf2_sha256` or pin `bcrypt==4.x` explicitly.
+- **`i^6` bitwise XOR as colour flip**: Used in NNUE `_flip_features` to mirror piece indices. For indices 0–5 (White) it works, but indices 6–11 (Black) produce values outside 0–11. Always use `(i + 6) % 12`.
+
+### Test Isolation Failures
+- Route tests with fixed usernames (`"tdd_user_1"`) fail on re-run against a persistent SQLite DB because the user already exists. **Always suffix test identifiers with `uuid.uuid4().hex[:8]`** or use a test-scoped in-memory DB.
+
+### Missing Dependency Not in requirements.txt
+- `httpx` is required by FastAPI `TestClient` (via Starlette) but was not listed. Add `httpx` to `requirements.txt` for every project using FastAPI integration tests.
+
+### SDD / TDD Process Gaps (Avoided Next Time)
+- Specs were written **after** implementation. In future sessions: write spec → write failing tests → implement → green.
+- No regression test existed for the promotion bug until the user reported it. UI-critical interactions (drag-and-drop, dialogs) need a test or manual checklist entry **before** shipping.
+
+### react-chessboard Promotion Dialog
+- The library provides built-in promotion UI via three props that must **all** be set together:
+  1. `promotionToSquare` — the target square string (or `null` to hide)
+  2. `onPromotionPieceSelect(piece?: string)` — receives `"wQ" | "wR" | "wB" | "wN"` etc.
+  3. Return `false` from `onPieceDrop` to suppress the default move — the actual `makeMove()` call belongs inside `onPromotionPieceSelect`.
+
+### Improvements Required / Suggested
+- **Add a promotion SDD spec** (`SPEC-2026-03-31-009-pawn-promotion.md`) with acceptance criteria and a jest/vitest test case.
+- **E2E tests (Playwright)**: Promotion, castling, en-passant are promotion-adjacent special moves that should be covered by automated browser tests before release.
+- **Chess clock sync**: Current clocks are cosmetic (countdown timers); they should be driven by move timestamps from the backend for accurate time tracking.
+- **Mobile board width**: `boardWidth={480}` is fixed; should be responsive (`Math.min(window.innerWidth - 32, 480)`).
+- **Tournament state persistence**: In-memory `_TOURNAMENTS` dict is wiped on server restart. Persist to the SQLAlchemy `tournaments` table.
 
 ---
 
