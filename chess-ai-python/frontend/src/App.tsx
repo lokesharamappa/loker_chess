@@ -108,11 +108,25 @@ export default function App() {
   const {
     game, fen, moveHistory, evalCp, analysis, aiInfo,
     isThinking, gameOver, highlightSquares, makePlayerMove, reset,
+    reviewData, isFetchingReview, reviewIndex, reviewFens,
+    fetchGameReview, setReviewIndex,
   } = useChessGame(playerColor, strength, thinkingMs)
 
   const selectedStrength = STRENGTHS.find(s => s.value === strength)!
   const isWhiteTurn = game.turn() === 'w'
   const displayGameOver = gameOver || timeoutMsg
+  const isReviewMode = reviewFens.length > 0
+  const displayFen = isReviewMode ? (reviewFens[reviewIndex] ?? fen) : fen
+  const reviewMove = isReviewMode && reviewIndex > 0 ? reviewData!.moves[reviewIndex - 1] : null
+  const reviewHighlight: Record<string, React.CSSProperties> = reviewMove ? {
+    [reviewMove.uci.slice(0, 2)]: { backgroundColor: 'rgba(99,102,241,0.35)' },
+    [reviewMove.uci.slice(2, 4)]: { backgroundColor: 'rgba(99,102,241,0.55)' },
+    ...(reviewMove.best_move_uci && reviewMove.best_move_uci !== reviewMove.uci && ['inaccuracy','mistake','blunder'].includes(reviewMove.quality) ? {
+      [reviewMove.best_move_uci.slice(0, 2)]: { backgroundColor: 'rgba(34,197,94,0.25)' },
+      [reviewMove.best_move_uci.slice(2, 4)]: { backgroundColor: 'rgba(34,197,94,0.55)' },
+    } : {})
+  } : {}
+  const displayHighlight = isReviewMode ? reviewHighlight : highlightSquares
   const pairMoves: [string, string?][] = []
   for (let i = 0; i < moveHistory.length; i += 2)
     pairMoves.push([moveHistory[i], moveHistory[i + 1]])
@@ -357,12 +371,12 @@ export default function App() {
 
             <div className="rounded-xl overflow-hidden shadow-2xl border border-slate-700">
               <Chessboard
-                position={fen}
-                onPieceDrop={onDrop}
-                onPromotionPieceSelect={onPromotionPieceSelect}
-                promotionToSquare={promotionSquare as any}
+                position={displayFen}
+                onPieceDrop={isReviewMode ? () => false : onDrop}
+                onPromotionPieceSelect={isReviewMode ? undefined : onPromotionPieceSelect}
+                promotionToSquare={isReviewMode ? null : promotionSquare as any}
                 boardOrientation={boardOrientation}
-                customSquareStyles={highlightSquares}
+                customSquareStyles={displayHighlight}
                 boardWidth={480}
                 customBoardStyle={{ borderRadius: '4px', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}
                 customDarkSquareStyle={{ backgroundColor: '#1e3a5f' }}
@@ -370,6 +384,42 @@ export default function App() {
                 areArrowsAllowed
               />
             </div>
+
+            {/* ── Review Navigator ──────────────────────────────────── */}
+            {isReviewMode && (
+              <div className="w-full max-w-md bg-slate-800/80 border border-indigo-500/40 rounded-xl px-4 py-2 flex items-center justify-between">
+                <button onClick={() => setReviewIndex(Math.max(0, reviewIndex - 1))}
+                  disabled={reviewIndex === 0}
+                  className="p-1.5 rounded-lg hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="text-center">
+                  <p className="text-xs text-indigo-400 font-semibold uppercase tracking-wide">Review Mode</p>
+                  <p className="text-sm font-bold text-slate-200">
+                    {reviewIndex === 0 ? 'Start' : `Move ${reviewIndex} / ${reviewData!.total_moves}`}
+                  </p>
+                  {reviewMove && (
+                    <p className="text-xs text-slate-400">
+                      {reviewMove.side === 'white' ? '♔' : '♚'} <span className="font-mono font-bold">{reviewMove.san}</span>
+                      {' '}<span className={clsx('font-bold', {
+                        'text-teal-400': reviewMove.quality === 'brilliant',
+                        'text-blue-400': reviewMove.quality === 'good',
+                        'text-green-400': reviewMove.quality === 'best',
+                        'text-slate-400': reviewMove.quality === 'interesting',
+                        'text-yellow-400': reviewMove.quality === 'inaccuracy',
+                        'text-orange-400': reviewMove.quality === 'mistake',
+                        'text-red-400': reviewMove.quality === 'blunder',
+                      })}>{reviewMove.quality_symbol || '✓'}</span>
+                    </p>
+                  )}
+                </div>
+                <button onClick={() => setReviewIndex(Math.min(reviewData!.total_moves, reviewIndex + 1))}
+                  disabled={reviewIndex === reviewData!.total_moves}
+                  className="p-1.5 rounded-lg hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
 
             <div className="flex items-center justify-between w-full max-w-md">
               <div className="flex items-center gap-2 text-sm">
@@ -379,7 +429,7 @@ export default function App() {
               <ChessClock ms={boardOrientation === 'white' ? whiteMs : blackMs} active={!displayGameOver && moveHistory.length > 0 && (boardOrientation === 'white' ? isWhiteTurn : !isWhiteTurn)} />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-center">
               <button onClick={handleReset}
                 className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm">
                 <RotateCcw className="w-4 h-4" />New Game
@@ -397,6 +447,12 @@ export default function App() {
                 disabled={!!displayGameOver || moveHistory.length === 0}
                 className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-sm">
                 <Handshake className="w-4 h-4" />Draw
+              </button>
+              <button
+                onClick={() => { fetchGameReview(); setRightTab('analysis') }}
+                disabled={moveHistory.length < 2 || isFetchingReview}
+                className="flex items-center gap-1 px-3 py-2 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-sm font-semibold">
+                <BarChart2 className="w-4 h-4" />{isFetchingReview ? 'Analysing…' : 'Review Game'}
               </button>
             </div>
 
@@ -424,59 +480,199 @@ export default function App() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3">
-              {/* Analysis */}
+              {/* Analysis / Review */}
               {rightTab === 'analysis' && (
                 <div className="space-y-3">
-                  {analysis && (
-                    <>
-                      <div className="flex items-center justify-between text-xs text-slate-400">
-                        <span>Phase: <span className="text-amber-400 font-medium capitalize">{analysis.phase}</span></span>
-                        {analysis.tablebase_wdl && <span className="text-purple-400">TB: {analysis.tablebase_wdl}</span>}
-                      </div>
-                      {analysis.lines.map((line: any) => (
-                        <div key={line.rank} className="bg-slate-800 rounded-lg p-2 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono font-bold text-sm text-white">{line.move}</span>
-                            <span className={clsx('font-mono text-sm font-bold',
-                              line.score_cp !== undefined
-                                ? line.score_cp > 0 ? 'text-green-400' : line.score_cp < 0 ? 'text-red-400' : 'text-slate-400'
-                                : 'text-purple-400')}>
-                              {fmtCp(line.score_cp, line.score_mate)}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-400 font-mono truncate">{(line.pv as string[]).slice(0, 5).join(' ')}</p>
-                          <p className="text-xs text-slate-500">depth {line.depth}</p>
-                        </div>
-                      ))}
-                      {analysis.book_moves.length > 0 && (
-                        <div className="space-y-1">
-                          <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
-                            <BookOpen className="w-3 h-3 inline mr-1" />Book Moves
-                          </p>
-                          {(analysis.book_moves as any[]).slice(0, 5).map((bm: any, i: number) => (
-                            <div key={i} className="flex items-center justify-between bg-slate-800 rounded px-2 py-1">
-                              <span className="font-mono text-sm text-amber-300">{bm.move}</span>
-                              <span className="text-xs text-slate-400">{bm.frequency}%</span>
+
+                  {/* ── Loading state ── */}
+                  {isFetchingReview && (
+                    <div className="flex flex-col items-center justify-center py-10 gap-3">
+                      <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-sm text-indigo-400 font-semibold">Analysing game…</p>
+                      <p className="text-xs text-slate-500 text-center">Engine evaluating every move.<br/>This may take 10–30 seconds.</p>
+                    </div>
+                  )}
+
+                  {/* ── Review Results ── */}
+                  {!isFetchingReview && reviewData && (() => {
+                    const QCFG: Record<string, { bg: string; text: string; label: string }> = {
+                      brilliant:   { bg: 'bg-teal-500',    text: 'text-teal-300',   label: '!!' },
+                      good:        { bg: 'bg-blue-500',    text: 'text-blue-300',   label: '!' },
+                      best:        { bg: 'bg-green-500',   text: 'text-green-300',  label: '✓' },
+                      interesting: { bg: 'bg-slate-500',   text: 'text-slate-300',  label: '!?' },
+                      inaccuracy:  { bg: 'bg-yellow-500',  text: 'text-yellow-300', label: '?!' },
+                      mistake:     { bg: 'bg-orange-500',  text: 'text-orange-300', label: '?' },
+                      blunder:     { bg: 'bg-red-500',     text: 'text-red-300',    label: '??' },
+                      book:        { bg: 'bg-purple-500',  text: 'text-purple-300', label: '📖' },
+                    }
+                    const accColor = (a: number) =>
+                      a >= 90 ? 'text-green-400' : a >= 75 ? 'text-yellow-400' : a >= 60 ? 'text-orange-400' : 'text-red-400'
+                    const accBg = (a: number) =>
+                      a >= 90 ? 'bg-green-500' : a >= 75 ? 'bg-yellow-500' : a >= 60 ? 'bg-orange-500' : 'bg-red-500'
+
+                    const renderStats = (stats: typeof reviewData.white_stats, label: string, icon: string) => (
+                      <div className="flex-1 bg-slate-800 rounded-xl p-3 text-center border border-slate-700">
+                        <p className="text-xs text-slate-400 mb-1">{icon} {label}</p>
+                        <p className={clsx('text-3xl font-black', accColor(stats.accuracy))}>{stats.accuracy.toFixed(1)}%</p>
+                        <div className={clsx('h-1 rounded-full mt-1.5 mx-auto', accBg(stats.accuracy))}
+                          style={{ width: `${stats.accuracy}%` }} />
+                        <div className="mt-2 grid grid-cols-4 gap-0.5 text-[10px]">
+                          {[
+                            ['!!', stats.brilliant, 'text-teal-400'],
+                            ['!',  stats.good,      'text-blue-400'],
+                            ['✓',  stats.best,      'text-green-400'],
+                            ['?!', stats.inaccuracy,'text-yellow-400'],
+                            ['?',  stats.mistake,   'text-orange-400'],
+                            ['??', stats.blunder,   'text-red-400'],
+                          ].map(([sym, cnt, cls]) => (
+                            <div key={String(sym)} className="flex flex-col items-center">
+                              <span className={clsx('font-bold', cls)}>{sym}</span>
+                              <span className="text-slate-400">{cnt}</span>
                             </div>
                           ))}
                         </div>
+                      </div>
+                    )
+
+                    return (
+                      <>
+                        {/* Accuracy cards */}
+                        <div className="flex gap-2">
+                          {renderStats(reviewData.white_stats, 'White', '♔')}
+                          {renderStats(reviewData.black_stats, 'Black', '♚')}
+                        </div>
+
+                        {/* Legend */}
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(QCFG).filter(([k]) => k !== 'book').map(([q, cfg]) => (
+                            <span key={q} className={clsx('px-1.5 py-0.5 rounded text-[10px] font-bold text-white', cfg.bg)}>
+                              {cfg.label} {q.charAt(0).toUpperCase() + q.slice(1)}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Annotated move list */}
+                        <div className="space-y-0.5">
+                          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-1">
+                            Move-by-Move · click to jump
+                          </p>
+                          {Array.from({ length: Math.ceil(reviewData.moves.length / 2) }, (_, i) => {
+                            const wMove = reviewData.moves[i * 2]
+                            const bMove = reviewData.moves[i * 2 + 1]
+                            const renderMove = (mv: typeof wMove, idx: number) => {
+                              if (!mv) return <span className="flex-1" />
+                              const cfg = QCFG[mv.quality] ?? QCFG.best
+                              const isActive = reviewIndex === idx + 1
+                              return (
+                                <button
+                                  key={idx}
+                                  onClick={() => setReviewIndex(idx + 1)}
+                                  className={clsx(
+                                    'flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-left transition-all text-sm',
+                                    isActive ? 'bg-indigo-600/40 border border-indigo-500/60' : 'hover:bg-slate-700/60'
+                                  )}>
+                                  <span className={clsx('w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 text-white', cfg.bg)}>
+                                    {cfg.label}
+                                  </span>
+                                  <span className="font-mono font-semibold text-slate-200">{mv.san}</span>
+                                  {mv.eval_cp !== null && (
+                                    <span className={clsx('text-[10px] font-mono ml-auto shrink-0',
+                                      mv.eval_cp > 0 ? 'text-green-400' : mv.eval_cp < 0 ? 'text-red-400' : 'text-slate-400')}>
+                                      {mv.eval_cp > 0 ? '+' : ''}{(mv.eval_cp / 100).toFixed(1)}
+                                    </span>
+                                  )}
+                                </button>
+                              )
+                            }
+                            return (
+                              <div key={i} className="flex gap-1 items-center">
+                                <span className="text-slate-600 text-xs w-5 text-right shrink-0">{i + 1}.</span>
+                                {renderMove(wMove, i * 2)}
+                                {renderMove(bMove, i * 2 + 1)}
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {/* Best move hint for current review position */}
+                        {reviewMove && reviewMove.best_move_uci && reviewMove.best_move_uci !== reviewMove.uci
+                          && ['inaccuracy','mistake','blunder'].includes(reviewMove.quality) && (
+                          <div className="bg-green-900/30 border border-green-500/40 rounded-xl p-3">
+                            <p className="text-xs font-semibold text-green-400 mb-1">💡 Better move</p>
+                            <p className="font-mono text-sm text-white">{reviewMove.best_move_uci}</p>
+                            {reviewMove.delta_cp !== null && (
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                This move: {reviewMove.eval_cp !== null ? `${(reviewMove.eval_cp/100).toFixed(2)}` : '?'}
+                                {' '} · Loss: <span className="text-red-400">{(reviewMove.delta_cp/100).toFixed(2)}</span>
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
+
+                  {/* ── Live position analysis (when no review) ── */}
+                  {!isFetchingReview && !reviewData && (
+                    <>
+                      {moveHistory.length === 0 && (
+                        <p className="text-slate-500 text-sm text-center mt-8">
+                          Play moves to see live analysis.<br/>
+                          <span className="text-indigo-400">After the game, click <strong>Review Game</strong> for full analysis.</span>
+                        </p>
+                      )}
+                      {analysis && (
+                        <>
+                          <div className="flex items-center justify-between text-xs text-slate-400">
+                            <span>Phase: <span className="text-amber-400 font-medium capitalize">{analysis.phase}</span></span>
+                            {analysis.tablebase_wdl && <span className="text-purple-400">TB: {analysis.tablebase_wdl}</span>}
+                          </div>
+                          {analysis.lines.map((line: any) => (
+                            <div key={line.rank} className="bg-slate-800 rounded-lg p-2 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-mono font-bold text-sm text-white">{line.move}</span>
+                                <span className={clsx('font-mono text-sm font-bold',
+                                  line.score_cp !== undefined
+                                    ? line.score_cp > 0 ? 'text-green-400' : line.score_cp < 0 ? 'text-red-400' : 'text-slate-400'
+                                    : 'text-purple-400')}>
+                                  {fmtCp(line.score_cp, line.score_mate)}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-400 font-mono truncate">{(line.pv as string[]).slice(0, 5).join(' ')}</p>
+                              <p className="text-xs text-slate-500">depth {line.depth}</p>
+                            </div>
+                          ))}
+                          {analysis.book_moves.length > 0 && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
+                                <BookOpen className="w-3 h-3 inline mr-1" />Book Moves
+                              </p>
+                              {(analysis.book_moves as any[]).slice(0, 5).map((bm: any, i: number) => (
+                                <div key={i} className="flex items-center justify-between bg-slate-800 rounded px-2 py-1">
+                                  <span className="font-mono text-sm text-amber-300">{bm.move}</span>
+                                  <span className="text-xs text-slate-400">{bm.frequency}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {aiInfo && (
+                        <div className="bg-slate-800 rounded-lg p-2 space-y-1 border border-amber-500/20">
+                          <p className="text-xs text-amber-400 font-medium">Last AI Move</p>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-slate-300">Move: <strong className="text-white">{aiInfo.move_san}</strong></span>
+                            <span className="text-amber-300 font-bold">{aiInfo.score_str}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-400">
+                            <span>d{aiInfo.depth}</span>
+                            <span>{aiInfo.nodes.toLocaleString()} nodes</span>
+                            <span>{aiInfo.time_ms.toFixed(0)}ms</span>
+                          </div>
+                          <p className="text-xs text-purple-400 capitalize">{aiInfo.source}</p>
+                        </div>
                       )}
                     </>
-                  )}
-                  {aiInfo && (
-                    <div className="bg-slate-800 rounded-lg p-2 space-y-1 border border-amber-500/20">
-                      <p className="text-xs text-amber-400 font-medium">Last AI Move</p>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-300">Move: <strong className="text-white">{aiInfo.move_san}</strong></span>
-                        <span className="text-amber-300 font-bold">{aiInfo.score_str}</span>
-                      </div>
-                      <div className="flex justify-between text-xs text-slate-400">
-                        <span>d{aiInfo.depth}</span>
-                        <span>{aiInfo.nodes.toLocaleString()} nodes</span>
-                        <span>{aiInfo.time_ms.toFixed(0)}ms</span>
-                      </div>
-                      <p className="text-xs text-purple-400 capitalize">{aiInfo.source}</p>
-                    </div>
                   )}
                 </div>
               )}

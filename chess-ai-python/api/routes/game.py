@@ -14,6 +14,7 @@ from models.game import (
     GameCreateRequest, MoveRequest, GameStateResponse, GameResult,
     GameStatus, TimeControlModel, MoveModel, AIMoveRequest, AIMoveResponse,
     AnalysisRequest, AnalysisResponse, AnalysisLine,
+    ReviewRequest, MoveReviewItem, PlayerStats, ReviewResponse,
 )
 from agents.orchestrator import ChessAIOrchestrator, OrchestratorConfig
 
@@ -280,4 +281,52 @@ async def analyze_position(
         book_moves=book_moves,
         tablebase_wdl=tb_wdl,
         static_eval_cp=static_eval,
+    )
+
+
+@router.post("/review", response_model=ReviewResponse)
+def review_game(req: ReviewRequest):
+    """
+    Full game annotation: per-move quality classification, accuracy %, best-move hints.
+    Runs synchronously in FastAPI thread pool (safe for long computation).
+    """
+    if not req.moves_uci:
+        raise HTTPException(status_code=400, detail="No moves provided")
+
+    from core.annotator import GameAnnotator
+    annotator = GameAnnotator(depth=req.depth, time_per_move_ms=req.time_per_move_ms)
+
+    try:
+        annotations = annotator.annotate_board_sequence(req.moves_uci)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Annotation error: {e}")
+
+    white_anns = [a for i, a in enumerate(annotations) if i % 2 == 0]
+    black_anns = [a for i, a in enumerate(annotations) if i % 2 == 1]
+
+    def build_stats(anns) -> PlayerStats:
+        stats = annotator.classify_moves(anns)
+        return PlayerStats(accuracy=stats["accuracy"], **stats["counts"])
+
+    moves_out = []
+    for i, ann in enumerate(annotations):
+        moves_out.append(MoveReviewItem(
+            move_number=ann.move_number,
+            uci=ann.uci,
+            san=ann.san,
+            eval_cp=ann.eval_cp,
+            best_move_uci=ann.best_move_uci,
+            best_eval_cp=ann.best_eval_cp,
+            delta_cp=ann.delta_cp,
+            quality=ann.quality,
+            quality_symbol=ann.quality_symbol,
+            comment=ann.comment,
+            side="white" if i % 2 == 0 else "black",
+        ))
+
+    return ReviewResponse(
+        moves=moves_out,
+        white_stats=build_stats(white_anns),
+        black_stats=build_stats(black_anns),
+        total_moves=len(annotations),
     )

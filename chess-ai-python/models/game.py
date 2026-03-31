@@ -177,3 +177,41 @@ class AIMoveResponse(BaseModel):
     pv: List[str]
     annotation: str
     fen_after: str
+
+
+class ReviewRequest(BaseModel):
+    moves_uci: List[str]
+    depth: int = Field(default=10, ge=1, le=20)
+    time_per_move_ms: float = Field(default=200.0, ge=50.0, le=2000.0)
+
+
+class MoveReviewItem(BaseModel):
+    move_number: int
+    uci: str
+    san: str
+    eval_cp: Optional[int] = None
+    best_move_uci: Optional[str] = None
+    best_eval_cp: Optional[int] = None
+    delta_cp: Optional[int] = None
+    quality: str
+    quality_symbol: str
+    comment: str
+    side: str
+
+
+class PlayerStats(BaseModel):
+    accuracy: float
+    brilliant: int = 0
+    good: int = 0
+    best: int = 0
+    interesting: int = 0
+    inaccuracy: int = 0
+    mistake: int = 0
+    blunder: int = 0
+
+
+class ReviewResponse(BaseModel):
+    moves: List[MoveReviewItem]
+    white_stats: PlayerStats
+    black_stats: PlayerStats
+    total_moves: int

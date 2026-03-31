@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { Chess } from 'chess.js'
 
 const API = 'http://localhost:8000'
@@ -34,6 +34,38 @@ export interface Analysis {
   static_eval_cp: number
 }
 
+export interface MoveReviewItem {
+  move_number: number
+  uci: string
+  san: string
+  eval_cp: number | null
+  best_move_uci: string | null
+  best_eval_cp: number | null
+  delta_cp: number | null
+  quality: string
+  quality_symbol: string
+  comment: string
+  side: 'white' | 'black'
+}
+
+export interface PlayerStats {
+  accuracy: number
+  brilliant: number
+  good: number
+  best: number
+  interesting: number
+  inaccuracy: number
+  mistake: number
+  blunder: number
+}
+
+export interface GameReview {
+  moves: MoveReviewItem[]
+  white_stats: PlayerStats
+  black_stats: PlayerStats
+  total_moves: number
+}
+
 export type Strength =
   | 'beginner' | 'novice' | 'intermediate' | 'advanced'
   | 'expert' | 'master' | 'grandmaster' | 'super_gm'
@@ -48,6 +80,10 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
   const [isThinking, setIsThinking] = useState(false)
   const [gameOver, setGameOver] = useState<string | null>(null)
   const [highlightSquares, setHighlightSquares] = useState<Record<string, React.CSSProperties>>({})
+  const [moveHistoryUCI, setMoveHistoryUCI] = useState<string[]>([])
+  const [reviewData, setReviewData] = useState<GameReview | null>(null)
+  const [isFetchingReview, setIsFetchingReview] = useState(false)
+  const [reviewIndex, setReviewIndex] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
 
   const isPlayerTurn = useCallback(
@@ -90,6 +126,7 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
         setGame(newGame)
         setFen(newGame.fen())
         setMoveHistory(newGame.history())
+        setMoveHistoryUCI(newGame.history({ verbose: true }).map(m => m.from + m.to + (m.promotion ?? '')))
         setHighlightSquares({
           [data.move_uci.slice(0, 2)]: { backgroundColor: 'rgba(245,158,11,0.3)' },
           [data.move_uci.slice(2, 4)]: { backgroundColor: 'rgba(245,158,11,0.45)' },
@@ -115,6 +152,7 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
         setGame(newGame)
         setFen(newGame.fen())
         setMoveHistory(newGame.history())
+        setMoveHistoryUCI(newGame.history({ verbose: true }).map(m => m.from + m.to + (m.promotion ?? '')))
         setHighlightSquares({
           [from]: { backgroundColor: 'rgba(99,102,241,0.3)' },
           [to]:   { backgroundColor: 'rgba(99,102,241,0.45)' },
@@ -134,24 +172,64 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
     [game, isThinking, isPlayerTurn, fetchAIMove, fetchAnalysis]
   )
 
+  const fetchGameReview = useCallback(async (depth = 10, timePerMoveMs = 200) => {
+    if (moveHistoryUCI.length === 0) return
+    setIsFetchingReview(true)
+    setReviewData(null)
+    try {
+      const res = await fetch(`${API}/api/games/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ moves_uci: moveHistoryUCI, depth, time_per_move_ms: timePerMoveMs }),
+      })
+      if (!res.ok) return
+      const data: GameReview = await res.json()
+      setReviewData(data)
+      setReviewIndex(data.total_moves)
+    } catch (e) {
+      console.error('Review error', e)
+    } finally {
+      setIsFetchingReview(false)
+    }
+  }, [moveHistoryUCI])
+
+  const reviewFens = useMemo(() => {
+    if (!reviewData) return [] as string[]
+    const g = new Chess()
+    const fens: string[] = [g.fen()]
+    for (const mv of reviewData.moves) {
+      try {
+        g.move({ from: mv.uci.slice(0, 2), to: mv.uci.slice(2, 4), promotion: mv.uci[4] || undefined })
+        fens.push(g.fen())
+      } catch { break }
+    }
+    return fens
+  }, [reviewData])
+
   const reset = useCallback(() => {
     abortRef.current?.abort()
     const g = new Chess()
     setGame(g)
     setFen(g.fen())
     setMoveHistory([])
+    setMoveHistoryUCI([])
     setGameOver(null)
     setAiInfo(null)
     setAnalysis(null)
     setEvalCp(0)
     setHighlightSquares({})
     setIsThinking(false)
+    setReviewData(null)
+    setIsFetchingReview(false)
+    setReviewIndex(0)
     if (playerColor === 'black') fetchAIMove(g.fen(), g)
   }, [playerColor, fetchAIMove])
 
   return {
-    game, fen, moveHistory, evalCp, analysis, aiInfo,
+    game, fen, moveHistory, moveHistoryUCI, evalCp, analysis, aiInfo,
     isThinking, gameOver, highlightSquares,
+    reviewData, isFetchingReview, reviewIndex, reviewFens,
+    fetchGameReview, setReviewIndex,
     makePlayerMove, reset, fetchAnalysis, isPlayerTurn,
   }
 }
