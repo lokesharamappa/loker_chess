@@ -87,6 +87,10 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
   const abortRef = useRef<AbortController | null>(null)
   const moveHistoryUCIRef = useRef<string[]>([])
   const gameSavedRef = useRef(false)
+  const undoStackRef = useRef<string[][]>([])
+  const [coachMove, setCoachMove] = useState<string | null>(null)
+  const [isFetchingCoach, setIsFetchingCoach] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
 
   const isPlayerTurn = useCallback(
     (g: Chess) => (g.turn() === 'w' ? 'white' : 'black') === playerColor && !g.isGameOver(),
@@ -189,6 +193,9 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
         const move = newGame.move({ from, to, promotion: promotion || undefined })
         if (!move) return false
         const moveUci = move.from + move.to + (move.promotion || '')
+        undoStackRef.current = []  // new move invalidates redo history
+        setCanRedo(false)
+        setCoachMove(null)
         moveHistoryUCIRef.current = [...moveHistoryUCIRef.current, moveUci]
         setGame(newGame)
         setFen(newGame.fen())
@@ -212,6 +219,72 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
     },
     [isThinking, isPlayerTurn, fetchAIMove, fetchAnalysis]
   )
+
+  const undo = useCallback(() => {
+    const total = moveHistoryUCIRef.current.length
+    if (total === 0 || isThinking) return
+    abortRef.current?.abort()
+    const movesToUndo = total >= 2 ? 2 : 1
+    const undone = moveHistoryUCIRef.current.slice(-movesToUndo)
+    undoStackRef.current = [...undoStackRef.current, undone]
+    moveHistoryUCIRef.current = moveHistoryUCIRef.current.slice(0, -movesToUndo)
+    const newGame = new Chess()
+    for (const uci of moveHistoryUCIRef.current) {
+      newGame.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || undefined })
+    }
+    setGame(newGame)
+    setFen(newGame.fen())
+    setMoveHistory(newGame.history())
+    setMoveHistoryUCI([...moveHistoryUCIRef.current])
+    setGameOver(null)
+    setHighlightSquares({})
+    setIsThinking(false)
+    setCoachMove(null)
+    setCanRedo(true)
+    gameSavedRef.current = false
+    fetchAnalysis(newGame.fen())
+  }, [isThinking, fetchAnalysis])
+
+  const redo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return
+    const lastUndone = undoStackRef.current[undoStackRef.current.length - 1]
+    undoStackRef.current = undoStackRef.current.slice(0, -1)
+    const newHistory = [...moveHistoryUCIRef.current, ...lastUndone]
+    const newGame = new Chess()
+    for (const uci of newHistory) {
+      newGame.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || undefined })
+    }
+    moveHistoryUCIRef.current = newHistory
+    setGame(newGame)
+    setFen(newGame.fen())
+    setMoveHistory(newGame.history())
+    setMoveHistoryUCI([...moveHistoryUCIRef.current])
+    setHighlightSquares({})
+    setCoachMove(null)
+    setCanRedo(undoStackRef.current.length > 0)
+    if (newGame.isGameOver()) setGameOver(getGameOverReason(newGame))
+    fetchAnalysis(newGame.fen())
+  }, [fetchAnalysis])
+
+  const fetchCoachMove = useCallback(async () => {
+    if (game.isGameOver() || isThinking || isFetchingCoach) return
+    setIsFetchingCoach(true)
+    setCoachMove(null)
+    try {
+      const res = await fetch(`${API}/api/games/ai-move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fen: game.fen(), strength: 'super_gm', time_limit_ms: 3000 }),
+      })
+      if (!res.ok) return
+      const data: AIMoveInfo = await res.json()
+      setCoachMove(data.move_uci)
+    } catch (e) {
+      console.error('Coach error', e)
+    } finally {
+      setIsFetchingCoach(false)
+    }
+  }, [game, isThinking, isFetchingCoach])
 
   const fetchGameReview = useCallback(async (depth = 10, timePerMoveMs = 200) => {
     if (moveHistoryUCI.length === 0) return
@@ -250,7 +323,10 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
   const reset = useCallback(() => {
     abortRef.current?.abort()
     moveHistoryUCIRef.current = []
+    undoStackRef.current = []
     gameSavedRef.current = false
+    setCanRedo(false)
+    setCoachMove(null)
     const g = new Chess()
     setGame(g)
     setFen(g.fen())
@@ -274,6 +350,8 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
     reviewData, isFetchingReview, reviewIndex, reviewFens,
     fetchGameReview, setReviewIndex,
     makePlayerMove, reset, fetchAnalysis, isPlayerTurn, saveGame,
+    undo, redo, canUndo: moveHistory.length > 0 && !isThinking, canRedo,
+    coachMove, isFetchingCoach, fetchCoachMove,
   }
 }
 

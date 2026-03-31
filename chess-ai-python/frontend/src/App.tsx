@@ -4,6 +4,7 @@ import {
   Brain, BarChart2, Settings, ChevronLeft, ChevronRight,
   RotateCcw, Flag, Handshake, Zap, BookOpen, Shield,
   Puzzle, History, TrendingUp, Clock, Eye, LogIn, LogOut, User, Trophy,
+  Undo2, Redo2, Lightbulb,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { EvalGraph } from './components/EvalGraph'
@@ -67,6 +68,31 @@ function EvalBar({ cp, flipped }: { cp: number; flipped: boolean }) {
   )
 }
 
+function getCoachingText(mv: { quality: string; delta_cp: number | null; move_number: number; best_move_uci: string | null; eval_cp: number | null; san: string }): string {
+  const loss = mv.delta_cp !== null ? Math.abs(mv.delta_cp) : 0
+  const lossStr = (loss / 100).toFixed(1)
+  const phase = mv.move_number <= 10 ? 'opening' : mv.move_number <= 25 ? 'middlegame' : 'endgame'
+  const bestRef = mv.best_move_uci ? ` The engine recommends ${mv.best_move_uci} instead.` : ''
+  switch (mv.quality) {
+    case 'brilliant':
+      return `A brilliant move — the hallmark of a world-class game. This is a deep tactical or positional idea that requires exceptional vision. Magnus Carlsen and top-10 GMs find these by combining long-range pattern recognition with concrete calculation. Annotators award this the "!!" symbol in official FIDE match records.`
+    case 'best':
+      return `Engine-best move — exactly what FIDE top players and computer engines recommend for this ${phase} position. Perfect technical execution. Continue applying the same precise thinking to maintain this standard throughout the game.`
+    case 'good':
+      return `A principled, solid move that fits well into the position. Good at all competitive levels. In FIDE tournament play, a titled player might find a marginally sharper continuation, but this keeps the game on a healthy course. Focus on finding the nuance between good and best to reach master-level precision.`
+    case 'interesting':
+      return `A creative practical choice. While not the engine's first pick, this introduces complexity and steers the game into less-charted territory — a technique often used intentionally by GMs to unsettle well-prepared opponents. Mikhail Tal, the "Magician from Riga," built his World Championship career on such adventurous ideas.`
+    case 'inaccuracy':
+      return `A small inaccuracy — ${lossStr} pawns conceded. In the ${phase}, these subtle errors compound over time and can shift a balanced game. FIDE coaches teach the "thinking technique": always identify your opponent's best reply before moving. Ask: "What is the most dangerous thing my opponent can do?${bestRef}"`
+    case 'mistake':
+      return `A significant mistake — ${lossStr} pawns lost. This changes the evaluation of the position noticeably. In professional chess, mistakes at this scale are swiftly exploited by titled players. The FIDE method: before committing, scan all forcing sequences — checks, captures, and threats — for both sides.${bestRef}`
+    case 'blunder':
+      return `A critical blunder — ${lossStr} pawns surrendered! This is the type of decisive error that settles games at every level from club to World Championship. Even world #1 players blunder under time pressure. Apply the grandmaster "blunder check": pause 3 seconds, look for: (1) Are any of my pieces hanging? (2) Can my opponent check or capture unexpectedly? (3) Am I walking into a tactic?${bestRef}`
+    default:
+      return ''
+  }
+}
+
 function ChessClock({ ms, active }: { ms: number; active: boolean }) {
   const secs = Math.ceil(ms / 1000)
   const m = Math.floor(secs / 60)
@@ -110,6 +136,8 @@ export default function App() {
     isThinking, gameOver, highlightSquares, makePlayerMove, reset,
     reviewData, isFetchingReview, reviewIndex, reviewFens,
     fetchGameReview, setReviewIndex, saveGame,
+    undo, redo, canUndo, canRedo,
+    coachMove, isFetchingCoach, fetchCoachMove,
   } = useChessGame(playerColor, strength, thinkingMs)
 
   const [historySessionId, setHistorySessionId] = React.useState(
@@ -426,11 +454,19 @@ export default function App() {
             <div className="rounded-xl overflow-hidden shadow-2xl border border-slate-700">
               <Chessboard
                 position={displayFen}
-                onPieceDrop={isReviewMode ? () => false : onDrop}
-                onPromotionPieceSelect={isReviewMode ? undefined : onPromotionPieceSelect}
-                promotionToSquare={isReviewMode ? null : promotionSquare as any}
+                onPieceDrop={isReviewMode || !!displayGameOver ? () => false : onDrop}
+                onPromotionPieceSelect={isReviewMode || !!displayGameOver ? undefined : onPromotionPieceSelect}
+                promotionToSquare={isReviewMode || !!displayGameOver ? null : promotionSquare as any}
+                isDraggablePiece={({ piece }) => {
+                  if (!!displayGameOver || isReviewMode || isThinking) return false
+                  const isWhitePiece = piece[0] === 'w'
+                  return isWhitePiece === (playerColor === 'white')
+                }}
                 boardOrientation={boardOrientation}
                 customSquareStyles={displayHighlight}
+                customArrows={coachMove && !displayGameOver && !isReviewMode
+                  ? [[coachMove.slice(0,2) as any, coachMove.slice(2,4) as any, 'rgb(0,192,80)']]
+                  : []}
                 boardWidth={480}
                 customBoardStyle={{ borderRadius: '4px', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}
                 customDarkSquareStyle={{ backgroundColor: '#1e3a5f' }}
@@ -492,6 +528,16 @@ export default function App() {
                 className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm">
                 <ChevronLeft className="w-3 h-3" /><ChevronRight className="w-3 h-3" />Flip
               </button>
+              <button onClick={undo} disabled={!canUndo || !!displayGameOver}
+                title="Undo last move"
+                className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-sm">
+                <Undo2 className="w-4 h-4" />Undo
+              </button>
+              <button onClick={redo} disabled={!canRedo}
+                title="Redo undone move"
+                className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-sm">
+                <Redo2 className="w-4 h-4" />Redo
+              </button>
               <button onClick={handleResign}
                 disabled={!!displayGameOver || moveHistory.length === 0}
                 className="flex items-center gap-1 px-3 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-sm">
@@ -501,6 +547,19 @@ export default function App() {
                 disabled={!!displayGameOver || moveHistory.length === 0}
                 className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-sm">
                 <Handshake className="w-4 h-4" />Draw
+              </button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+              <button
+                onClick={() => { fetchCoachMove() }}
+                disabled={!!displayGameOver || isThinking || isFetchingCoach || moveHistory.length === 0}
+                title="Get FIDE 3200 engine best-move suggestion"
+                className={clsx(
+                  'flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all',
+                  coachMove ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-slate-700 hover:bg-slate-600',
+                  (!!displayGameOver || isThinking || isFetchingCoach || moveHistory.length === 0) && 'opacity-30 cursor-not-allowed'
+                )}>
+                <Lightbulb className="w-4 h-4" />{isFetchingCoach ? 'Thinking…' : coachMove ? '💡 Coach: ' + coachMove : '💡 Coach'}
               </button>
               <button
                 onClick={() => { fetchGameReview(); setRightTab('analysis') }}
@@ -662,6 +721,51 @@ export default function App() {
                             )}
                           </div>
                         )}
+
+                        {/* FIDE Coach analysis for selected move */}
+                        {reviewMove && (() => {
+                          const text = getCoachingText(reviewMove)
+                          if (!text) return null
+                          const qualityColor: Record<string, string> = {
+                            brilliant: 'border-teal-500/40 bg-teal-900/20',
+                            best:      'border-green-500/30 bg-green-900/20',
+                            good:      'border-blue-500/30 bg-blue-900/20',
+                            interesting: 'border-slate-500/40 bg-slate-800/60',
+                            inaccuracy: 'border-yellow-500/40 bg-yellow-900/20',
+                            mistake:   'border-orange-500/40 bg-orange-900/20',
+                            blunder:   'border-red-500/40 bg-red-900/20',
+                          }
+                          const headerColor: Record<string, string> = {
+                            brilliant: 'text-teal-300', best: 'text-green-300', good: 'text-blue-300',
+                            interesting: 'text-slate-300', inaccuracy: 'text-yellow-300',
+                            mistake: 'text-orange-300', blunder: 'text-red-300',
+                          }
+                          return (
+                            <div className={clsx('rounded-xl p-3 border', qualityColor[reviewMove.quality] ?? 'border-slate-600 bg-slate-800/60')}>
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <span className="text-base">🎓</span>
+                                <p className={clsx('text-xs font-bold uppercase tracking-wide', headerColor[reviewMove.quality] ?? 'text-slate-300')}>
+                                  FIDE Coach — Move {reviewMove.move_number}: {reviewMove.san}
+                                </p>
+                              </div>
+                              <p className="text-xs text-slate-300 leading-relaxed">{text}</p>
+                              {reviewMove.eval_cp !== null && (
+                                <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center gap-3 text-xs">
+                                  <span className="text-slate-500">Position eval:</span>
+                                  <span className={clsx('font-mono font-bold',
+                                    reviewMove.eval_cp > 0 ? 'text-green-400' : reviewMove.eval_cp < 0 ? 'text-red-400' : 'text-slate-400')}>
+                                    {reviewMove.eval_cp > 0 ? '+' : ''}{(reviewMove.eval_cp / 100).toFixed(2)}
+                                  </span>
+                                  {reviewMove.delta_cp !== null && Math.abs(reviewMove.delta_cp) > 5 && (
+                                    <span className={clsx('font-mono', reviewMove.delta_cp < 0 ? 'text-red-400' : 'text-green-400')}>
+                                      ({reviewMove.delta_cp > 0 ? '+' : ''}{(reviewMove.delta_cp / 100).toFixed(2)})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </>
                     )
                   })()}
