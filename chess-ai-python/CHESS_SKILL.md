@@ -4,8 +4,8 @@ id: "SKILL-CHESS-AI-PYTHON-2026-03-31-001"
 author: "Chess AI Development Team"
 status: "Completed"
 created: "2026-03-31"
-updated: "2026-03-31 v2.3"
-version: "2.3"
+updated: "2026-03-31 v2.5"
+version: "2.5"
 type: "skill"
 ---
 
@@ -25,13 +25,15 @@ Full-stack, FIDE-level professional chess web application built with a **Python 
 
 > These are standing instructions that apply to **every** session and task. Save new rules here as they are agreed upon.
 
-### End-of-Session Checklist (always do all three)
+### End-of-Session Checklist (always do ALL THREE — no exceptions)
 1. **Commit & save** — stage all changed source files and `dist/`, commit with a clear message, move `main` forward.
 2. **Tag reference versions** — when the user marks a state as a reference/baseline, create an annotated git tag (e.g. `git tag -a v1.0 -m "..."`).
-3. **Share the app link** — always end every task/session with the playable frontend URL:
+3. **Share the app link** — **EVERY response that completes a task MUST end with these links. No exceptions. The user has reminded about this multiple times.**
    - 🎮 **Player app:** `http://localhost:5173`
    - 🔧 **Backend API:** `http://localhost:8000`
    - 📖 **Swagger docs:** `http://localhost:8000/docs`
+
+> ⚠️ **CRITICAL HABIT**: If the app link is missing at the end of any task completion response, that is a workflow failure. Always include it.
 
 ### Skill File Rule
 - **Any instruction or habit saved to AI memory must also be written here.** Memory is ephemeral across tools; this file is the persistent source of truth.
@@ -68,7 +70,7 @@ chess-ai-python/
 │   ├── main.py              # FastAPI app, CORS, route mounting, lifespan
 │   ├── auth.py              # JWT register/login, OAuth2, pbkdf2_sha256 hashing
 │   ├── routes/
-│   │   ├── game.py          # /api/games — analyze, ai-move, pgn-import
+│   │   ├── game.py          # /api/games — analyze, ai-move, pgn-import, review
 │   │   ├── history.py       # /api/history — game list, moves, PGN, annotate
 │   │   ├── openings.py      # /api/openings — classify, search, all
 │   │   ├── puzzles.py       # /api/puzzles — next, submit, stats
@@ -100,7 +102,7 @@ chess-ai-python/
 │   └── src/
 │       ├── App.tsx          # Multi-tab UI: Play, Puzzles, Openings, History, Spectate
 │       ├── hooks/
-│       │   ├── useChessGame.ts  # Game state, AI fetching, move management
+│       │   ├── useChessGame.ts  # Game state, AI fetching, move management, review
 │       │   └── useAuth.ts       # JWT auth state, localStorage persistence
 │       └── components/
 │           ├── EvalGraph.tsx        # Line chart of engine eval over moves
@@ -412,6 +414,7 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
 | `api/auth.py`         | `passlib[bcrypt]` incompatible with Python 3.13 | Switched to `pbkdf2_sha256`  |
 | `GameHistoryPanel.tsx`| `fen_after` missing for annotated PGNs | Reconstruct FENs via `chess.js`          |
 | `App.tsx`             | Pawn promotion hardcoded to queen; piece picker never shown | Store `pendingPromotion`, set `promotionToSquare`, wire `onPromotionPieceSelect` → `makePlayerMove(from, to, piece[1].toLowerCase())` |
+| `App.tsx`             | Resign and Draw buttons rendered but had no `onClick` | Added `handleResign` / `handleDraw` stopping clock and setting `timeoutMsg`; buttons disabled before first move or when game over |
 
 ---
 
@@ -433,6 +436,20 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
 - Specs were written **after** implementation. In future sessions: write spec → write failing tests → implement → green.
 - No regression test existed for the promotion bug until the user reported it. UI-critical interactions (drag-and-drop, dialogs) need a test or manual checklist entry **before** shipping.
 
+### App Link Habit (Repeatedly Violated)
+- The user has reminded **multiple times** to always share the app link at the end of every task. This must be a reflex — no task completion message is complete without:
+  ```
+  🎮 App: http://localhost:5173
+  ```
+- This rule is also recorded in Session Workflow Rules above and in AI memory. **Any response completing a task that omits this link is a failure.**
+
+### Game Review Feature — Architecture Notes
+- `GameAnnotator.annotate_board_sequence(moves_uci)` is the core — evaluates every position twice (before+after move) at depth 10, 200ms/move.
+- For a 30-move game this takes ~12s. Always show a loading spinner and set `time_per_move_ms=200` (not the default 1000ms) for acceptable UX.
+- Backend endpoint is sync (`def` not `async def`) — FastAPI runs it in a thread pool, which is correct for CPU-bound long tasks.
+- `reviewFens` is computed via `useMemo` in the hook using chess.js move replay — no extra backend roundtrip needed for board positions.
+- After backend code changes, the server **must be restarted** — Python does not hot-reload. Always remind the user of this.
+
 ### react-chessboard Promotion Dialog
 - The library provides built-in promotion UI via three props that must **all** be set together:
   1. `promotionToSquare` — the target square string (or `null` to hide)
@@ -448,8 +465,11 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
 - **Add a promotion SDD spec** (`SPEC-2026-03-31-009-pawn-promotion.md`) — ✅ Done
 - **E2E tests (Playwright)**: Promotion, castling, en-passant should be covered by automated browser tests before release.
 - **Chess clock sync**: ✅ Frontend countdown clocks implemented (100ms setInterval, increment support, timeout detection). Long-term: clocks could be driven by move timestamps from the backend for server-authoritative time tracking.
+- **Game review / analysis**: ✅ Implemented chess.com-style game review (accuracy %, move quality, board navigator).
+- **Resign / Draw**: ✅ Fixed — buttons wired with proper game-state guards.
 - **Mobile board width**: `boardWidth={480}` is fixed; should be responsive (`Math.min(window.innerWidth - 32, 480)`).
 - **Tournament state persistence**: In-memory `_TOURNAMENTS` dict is wiped on server restart. Persist to the SQLAlchemy `tournaments` table.
+- **Backend restart after route changes**: Any new FastAPI route added requires a backend server restart (`python run.py`) to be loaded. The dev server does NOT hot-reload Python code.
 
 ---
 
