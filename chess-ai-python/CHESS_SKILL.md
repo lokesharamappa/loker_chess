@@ -4,8 +4,8 @@ id: "SKILL-CHESS-AI-PYTHON-2026-03-31-001"
 author: "Chess AI Development Team"
 status: "Completed"
 created: "2026-03-31"
-updated: "2026-03-31 v2.5"
-version: "2.5"
+updated: "2026-03-31 v2.6"
+version: "2.6"
 type: "skill"
 ---
 
@@ -28,12 +28,12 @@ Full-stack, FIDE-level professional chess web application built with a **Python 
 ### End-of-Session Checklist (always do ALL THREE — no exceptions)
 1. **Commit & save** — stage all changed source files and `dist/`, commit with a clear message, move `main` forward.
 2. **Tag reference versions** — when the user marks a state as a reference/baseline, create an annotated git tag (e.g. `git tag -a v1.0 -m "..."`).
-3. **Share the app link** — **EVERY response that completes a task MUST end with these links. No exceptions. The user has reminded about this multiple times.**
+3. **Share the app link** — **EVERY response that completes a task MUST end with the single player app link. No exceptions.**
    - 🎮 **Player app:** `http://localhost:5173`
-   - 🔧 **Backend API:** `http://localhost:8000`
-   - 📖 **Swagger docs:** `http://localhost:8000/docs`
 
-> ⚠️ **CRITICAL HABIT**: If the app link is missing at the end of any task completion response, that is a workflow failure. Always include it.
+> ⚠️ **CRITICAL RULE — DO NOT SHARE BACKEND OR SWAGGER LINKS WITH THE USER.**  
+> The user is an **end user**, not a developer. They do not need `http://localhost:8000` or `http://localhost:8000/docs`. Sharing those links is a workflow failure.  
+> Only ever share: **`http://localhost:5173`**
 
 ### Skill File Rule
 - **Any instruction or habit saved to AI memory must also be written here.** Memory is ephemeral across tools; this file is the persistent source of truth.
