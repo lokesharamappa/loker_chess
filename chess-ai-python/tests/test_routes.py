@@ -3,9 +3,14 @@ API integration tests — auth, openings, and tournament routes.
 Uses FastAPI TestClient (synchronous, no running server needed).
 """
 import pytest
+import uuid
 from fastapi.testclient import TestClient
 
 from api.main import app
+
+def _uid() -> str:
+    """Short unique suffix to avoid username collisions across test runs."""
+    return uuid.uuid4().hex[:8]
 
 client = TestClient(app)
 
@@ -17,15 +22,16 @@ AFTER_E4  = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
 
 class TestAuthRoutes:
     def test_register_creates_user(self):
+        uname = f"tdd_reg_{_uid()}"
         r = client.post("/api/auth/register", json={
-            "username": "tdd_user_1",
+            "username": uname,
             "display_name": "TDD User One",
             "password": "securepass",
         })
         assert r.status_code == 200
         data = r.json()
         assert "access_token" in data
-        assert data["username"] == "tdd_user_1"
+        assert data["username"] == uname
         assert data["rating"] == 1500.0
 
     def test_duplicate_username_rejected(self):
@@ -36,21 +42,23 @@ class TestAuthRoutes:
         assert "taken" in r2.json()["detail"].lower()
 
     def test_login_returns_token(self):
+        uname = f"tdd_login_{_uid()}"
         client.post("/api/auth/register", json={
-            "username": "tdd_login", "display_name": "Login", "password": "mypassword"
+            "username": uname, "display_name": "Login", "password": "mypassword"
         })
         r = client.post("/api/auth/token", data={
-            "username": "tdd_login", "password": "mypassword"
+            "username": uname, "password": "mypassword"
         })
         assert r.status_code == 200
         assert "access_token" in r.json()
 
     def test_wrong_password_rejected(self):
+        uname = f"tdd_badpass_{_uid()}"
         client.post("/api/auth/register", json={
-            "username": "tdd_badpass", "display_name": "Bad", "password": "correct"
+            "username": uname, "display_name": "Bad", "password": "correct"
         })
         r = client.post("/api/auth/token", data={
-            "username": "tdd_badpass", "password": "wrong"
+            "username": uname, "password": "wrong"
         })
         assert r.status_code == 401
 
@@ -59,23 +67,25 @@ class TestAuthRoutes:
         assert r.status_code == 401
 
     def test_me_endpoint_with_valid_token(self):
+        uname = f"tdd_me_{_uid()}"
         reg = client.post("/api/auth/register", json={
-            "username": "tdd_me", "display_name": "Me User", "password": "mepass123"
+            "username": uname, "display_name": "Me User", "password": "mepass123"
         })
+        assert reg.status_code == 200, reg.text
         token = reg.json()["access_token"]
         r = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
         assert r.status_code == 200
-        assert r.json()["username"] == "tdd_me"
+        assert r.json()["username"] == uname
 
     def test_register_validates_short_password(self):
         r = client.post("/api/auth/register", json={
-            "username": "tdd_short", "display_name": "Short", "password": "abc"
+            "username": f"tdd_short_{_uid()}", "display_name": "Short", "password": "abc"
         })
         assert r.status_code == 422
 
     def test_register_validates_short_username(self):
         r = client.post("/api/auth/register", json={
-            "username": "ab", "display_name": "Short", "password": "validpass"
+            "username": "ab", "display_name": "Short", "password": "validpass123"
         })
         assert r.status_code == 422
 
