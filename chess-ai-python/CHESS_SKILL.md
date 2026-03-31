@@ -4,8 +4,8 @@ id: "SKILL-CHESS-AI-PYTHON-2026-03-31-001"
 author: "Chess AI Development Team"
 status: "Completed"
 created: "2026-03-31"
-updated: "2026-03-31 v2.7"
-version: "2.7"
+updated: "2026-03-31 v2.8"
+version: "2.8"
 type: "skill"
 ---
 
@@ -471,9 +471,29 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
 - **Undo / Redo**: ✅ `undoStackRef` stores undone move pairs; undo removes last 2 half-moves (player+AI), redo replays them deterministically.
 - **FIDE 3200 Coach button**: ✅ Calls `/api/games/ai-move` at `super_gm` strength; best move shown as green arrow via `customArrows`.
 - **FIDE review coaching text**: ✅ `getCoachingText()` generates professional-level analysis per move quality, referencing Carlsen/Tal/FIDE methods.
+- **Learn/Academy tab**: ✅ 25 lessons across 5 categories (openings, middlegame, endgame, psychology, thinking). Each has an interactive 200px board, key points list, educational paragraphs, and a world-class player insight. Progress tracked in localStorage.
+- **Sound effects**: ✅ `useSound.ts` uses Web Audio API oscillators — move, capture, check, checkmate, draw sounds. Zero external assets. Toggle button in game controls.
+- **Material balance**: ✅ `getMaterialBalance(fen)` + `PieceSymbols` component. Captured pieces shown as Unicode symbols, advantage score (+N) shown when ahead.
+- **Opening name badge**: ✅ `fetchOpening()` in `useChessGame.ts` calls `/api/openings/classify-moves` after each move during first 22 moves. Displays ECO code + name in an amber badge above the board.
+- **git tag v3.0-stable**: ✅ Tagged as reference baseline before v4.0 development.
 - **Mobile board width**: `boardWidth={480}` is fixed; should be responsive (`Math.min(window.innerWidth - 32, 480)`).
 - **Tournament state persistence**: In-memory `_TOURNAMENTS` dict is wiped on server restart. Persist to the SQLAlchemy `tournaments` table.
 - **Backend restart after route changes**: Any new FastAPI route added requires a backend server restart (`python run.py`) to be loaded. The dev server does NOT hot-reload Python code.
+
+### Learn Academy Architecture (v4.0)
+- Data file: `frontend/src/components/learn-content.ts` — 25 `Lesson` objects across 5 `Category` types.
+- Component: `frontend/src/components/LearnPanel.tsx` — category tabs, level filter, lesson cards, lesson detail with mini board.
+- Board in each lesson: `react-chessboard` at 200px, `arePiecesDraggable={false}`.
+- Completion state: `Set<string>` stored in `localStorage('chess_learn_completed')` — persists across sessions.
+- Level filter: beginner / intermediate / advanced — filters within category.
+- Color scheme: amber=openings, blue=middlegame, green=endgame, purple=psychology, rose=thinking.
+
+### Sound Architecture (v4.0)
+- File: `frontend/src/hooks/useSound.ts`
+- `playTones()` helper: creates `AudioContext`, oscillators with `linearRamp` envelope — no external audio files.
+- `useSound(enabled)` hook returns `{ play(type) }` where type is `'move' | 'capture' | 'check' | 'checkmate' | 'start' | 'draw'`.
+- Triggered in `App.tsx` via `useEffect` on `moveHistory` changes: detects capture by checking SAN for 'x', check by `game.isCheck()`.
+- Game-over sounds triggered separately on `gameOver` state change.
 
 ### Move History Root Cause (Session 2026-03-31)
 - **Bug**: `fetchAIMove` created `new Chess(currentFen)` — FEN does not carry move history. After every AI response, `newGame.history()` returned only `[aiMove]` → Moves tab showed exactly 1 move.
