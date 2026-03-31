@@ -80,7 +80,7 @@ export default function App() {
   const [puzzleRating, setPuzzleRating] = useState(1200)
   const [evalHistory, setEvalHistory] = useState<(number | null)[]>([])
   const [showAuth, setShowAuth] = useState(false)
-  const [thinkingMs, setThinkingMs] = useState(2000)
+  const [thinkingMs, setThinkingMs] = useState(5000)
   const [promotionSquare, setPromotionSquare] = useState<string | null>(null)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const moveListRef = useRef<HTMLDivElement>(null)
@@ -228,6 +228,39 @@ export default function App() {
 
           {/* Board column */}
           <div className="flex flex-col items-center justify-center flex-1 px-4 py-4 gap-3">
+
+            {/* ── Difficulty bar ─────────────────────────────────── */}
+            <div className="w-full max-w-md">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Difficulty — tap to change</span>
+                <button onClick={() => setRightTab('settings')} className="text-[10px] text-amber-400 hover:text-amber-300 underline underline-offset-2">All settings ›</button>
+              </div>
+              <div className="flex gap-0.5">
+                {STRENGTHS.map(opt => (
+                  <button key={opt.value} onClick={() => setStrength(opt.value)}
+                    title={`${opt.label} — ${opt.desc}`}
+                    className={clsx(
+                      'flex-1 flex flex-col items-center py-1 rounded text-[10px] font-medium transition-all',
+                      strength === opt.value
+                        ? 'text-slate-900 font-bold'
+                        : 'text-slate-500 hover:text-slate-300 bg-slate-800'
+                    )}
+                    style={strength === opt.value ? { backgroundColor: opt.color } : {}}>
+                    <span>{opt.icon}</span>
+                    <span className="hidden sm:block truncate w-full text-center px-0.5">{opt.label.split(' ')[0]}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="text-lg">{selectedStrength.icon}</span>
+                <div>
+                  <span className="text-sm font-bold" style={{ color: selectedStrength.color }}>{selectedStrength.label}</span>
+                  <span className="text-xs text-slate-400 ml-1.5">{selectedStrength.elo} ELO</span>
+                  <span className="text-xs text-slate-500 ml-1.5">· {selectedStrength.desc}</span>
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between w-full max-w-md">
               <div className="flex items-center gap-2 text-sm">
                 <Shield className="w-4 h-4 text-slate-500" />
@@ -442,7 +475,7 @@ export default function App() {
                   <div>
                     <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Response Speed</p>
                     <div className="flex gap-1">
-                      {([{ms:1000,label:'Fast',sub:'~1s'},{ms:2000,label:'Balanced',sub:'~2s'},{ms:4000,label:'Deep',sub:'~4s'}] as const).map(opt => (
+                      {([{ms:2000,label:'Fast',sub:'~2s'},{ms:5000,label:'Balanced',sub:'~5s'},{ms:8000,label:'Deep',sub:'~8s'}] as const).map(opt => (
                         <button key={opt.ms} onClick={() => setThinkingMs(opt.ms)}
                           className={clsx('flex-1 flex flex-col items-center py-2 rounded-lg text-xs font-medium transition-all border',
                             thinkingMs === opt.ms
