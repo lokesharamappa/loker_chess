@@ -4,7 +4,7 @@ import {
   Brain, BarChart2, Settings, ChevronLeft, ChevronRight,
   RotateCcw, Flag, Handshake, Zap, BookOpen, Shield,
   Puzzle, History, TrendingUp, Clock, Eye, LogIn, LogOut, User, Trophy,
-  Undo2, Redo2, Lightbulb,
+  Undo2, Redo2, Lightbulb, GraduationCap, Volume2, VolumeX,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { EvalGraph } from './components/EvalGraph'
@@ -14,11 +14,49 @@ import { GameHistoryPanel } from './components/GameHistoryPanel'
 import { SpectatorView } from './components/SpectatorView'
 import { AuthModal } from './components/AuthModal'
 import { TournamentPanel } from './components/TournamentPanel'
+import { LearnPanel } from './components/LearnPanel'
 import { useChessGame } from './hooks/useChessGame'
 import { useAuth } from './hooks/useAuth'
+import { useSound } from './hooks/useSound'
 import type { Strength } from './hooks/useChessGame'
 
-type Tab = 'play' | 'puzzles' | 'openings' | 'history' | 'spectate' | 'tournament'
+type Tab = 'play' | 'puzzles' | 'openings' | 'history' | 'spectate' | 'tournament' | 'learn'
+
+function getMaterialBalance(fen: string): { whiteLost: Record<string, number>; blackLost: Record<string, number>; advantage: number } {
+  const board = fen.split(' ')[0]
+  const pieceValues: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9 }
+  const counts: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, p: 0, n: 0, b: 0, r: 0, q: 0 }
+  for (const ch of board) if (ch in counts) counts[ch]++
+  const start: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, p: 8, n: 2, b: 2, r: 2, q: 1 }
+  const whiteLost: Record<string, number> = {}
+  const blackLost: Record<string, number> = {}
+  let advantage = 0
+  for (const p of ['P', 'N', 'B', 'R', 'Q']) {
+    const lost = Math.max(0, start[p] - counts[p])
+    if (lost > 0) whiteLost[p] = lost
+    advantage -= lost * pieceValues[p.toLowerCase()]
+  }
+  for (const p of ['p', 'n', 'b', 'r', 'q']) {
+    const lost = Math.max(0, start[p] - counts[p])
+    if (lost > 0) blackLost[p] = lost
+    advantage += lost * pieceValues[p]
+  }
+  return { whiteLost, blackLost, advantage }
+}
+
+function PieceSymbols({ lost, color }: { lost: Record<string, number>; color: 'w' | 'b' }) {
+  const symbols: Record<string, string> = { P: '♟', N: '♞', B: '♝', R: '♜', Q: '♛', p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' }
+  const pieces: string[] = []
+  for (const [p, n] of Object.entries(lost)) {
+    for (let i = 0; i < n; i++) pieces.push(symbols[p] ?? p)
+  }
+  if (pieces.length === 0) return null
+  return (
+    <span className={clsx('text-sm tracking-tight', color === 'w' ? 'text-slate-400' : 'text-slate-300')}>
+      {pieces.join('')}
+    </span>
+  )
+}
 
 const STRENGTHS: { value: Strength; label: string; elo: number; color: string; icon: string; desc: string; category: string }[] = [
   { value: 'beginner',     label: 'Beginner',     elo: 800,  color: '#22c55e', icon: '🌱', desc: 'New to chess — learning the pieces',         category: 'Casual'      },
@@ -138,7 +176,13 @@ export default function App() {
     fetchGameReview, setReviewIndex, saveGame,
     undo, redo, canUndo, canRedo,
     coachMove, isFetchingCoach, fetchCoachMove,
+    currentOpening,
   } = useChessGame(playerColor, strength, thinkingMs)
+
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const { play: playSound } = useSound(soundEnabled)
+  const prevMoveCountRef = useRef(0)
+  const prevGameOverRef = useRef<string | null>(null)
 
   const [historySessionId, setHistorySessionId] = React.useState(
     () => localStorage.getItem('chess_session_id') || ''
@@ -164,6 +208,38 @@ export default function App() {
     pairMoves.push([moveHistory[i], moveHistory[i + 1]])
 
   useEffect(() => { isWhiteTurnRef.current = isWhiteTurn }, [isWhiteTurn])
+
+  // Sound effects
+  useEffect(() => {
+    const count = moveHistory.length
+    if (count > prevMoveCountRef.current && count > 0) {
+      const lastSan = moveHistory[count - 1] ?? ''
+      if (game.isGameOver()) {
+        // game end detected via moveHistory change
+      } else if (game.isCheck()) {
+        playSound('check')
+      } else if (lastSan.includes('x')) {
+        playSound('capture')
+      } else {
+        playSound('move')
+      }
+    }
+    prevMoveCountRef.current = count
+  }, [moveHistory, game, playSound])
+
+  useEffect(() => {
+    if (gameOver && gameOver !== prevGameOverRef.current) {
+      if (gameOver.toLowerCase().includes('checkmate')) playSound('checkmate')
+      else playSound('draw')
+    }
+    prevGameOverRef.current = gameOver
+  }, [gameOver, playSound])
+
+  useEffect(() => {
+    if (moveHistory.length === 0 && prevMoveCountRef.current > 0) {
+      prevMoveCountRef.current = 0
+    }
+  }, [moveHistory])
 
   // Auto-save on natural game-over (checkmate / stalemate / draw)
   useEffect(() => {
@@ -315,11 +391,12 @@ export default function App() {
   }
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'play',     label: 'Play',     icon: <Shield className="w-4 h-4" /> },
-    { id: 'puzzles',  label: 'Puzzles',  icon: <Puzzle className="w-4 h-4" /> },
-    { id: 'openings', label: 'Openings', icon: <BookOpen className="w-4 h-4" /> },
-    { id: 'history',  label: 'History',  icon: <History className="w-4 h-4" /> },
-    { id: 'spectate',    label: 'Spectate',    icon: <Eye className="w-4 h-4" /> },
+    { id: 'play',       label: 'Play',       icon: <Shield className="w-4 h-4" /> },
+    { id: 'learn',      label: 'Learn',      icon: <GraduationCap className="w-4 h-4" /> },
+    { id: 'puzzles',    label: 'Puzzles',    icon: <Puzzle className="w-4 h-4" /> },
+    { id: 'openings',   label: 'Openings',   icon: <BookOpen className="w-4 h-4" /> },
+    { id: 'history',    label: 'History',    icon: <History className="w-4 h-4" /> },
+    { id: 'spectate',   label: 'Spectate',   icon: <Eye className="w-4 h-4" /> },
     { id: 'tournament', label: 'Tournament', icon: <Trophy className="w-4 h-4" /> },
   ]
 
@@ -437,10 +514,30 @@ export default function App() {
               </div>
             </div>
 
+            {/* Opening name badge */}
+            {currentOpening && !displayGameOver && moveHistory.length <= 22 && (
+              <div className="w-full max-w-md flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <BookOpen className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                <span className="text-xs font-mono text-amber-300 font-semibold">{currentOpening.eco}</span>
+                <span className="text-xs text-slate-300 truncate">{currentOpening.name}</span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between w-full max-w-md">
               <div className="flex items-center gap-2 text-sm">
                 <Shield className="w-4 h-4 text-slate-500" />
                 <span>{boardOrientation === 'white' ? 'Black (AI)' : 'White (You)'}</span>
+                {(() => {
+                  const { whiteLost, blackLost, advantage } = getMaterialBalance(displayFen)
+                  const topLost = boardOrientation === 'white' ? whiteLost : blackLost
+                  const topAdv = boardOrientation === 'white' ? advantage : -advantage
+                  return (
+                    <span className="flex items-center gap-1">
+                      <PieceSymbols lost={topLost} color={boardOrientation === 'white' ? 'w' : 'b'} />
+                      {topAdv > 0 && <span className="text-xs text-green-400 font-bold">+{topAdv}</span>}
+                    </span>
+                  )
+                })()}
               </div>
               <ChessClock ms={boardOrientation === 'white' ? blackMs : whiteMs} active={!displayGameOver && moveHistory.length > 0 && (boardOrientation === 'white' ? !isWhiteTurn : isWhiteTurn)} />
             </div>
@@ -515,6 +612,17 @@ export default function App() {
               <div className="flex items-center gap-2 text-sm">
                 <Shield className="w-4 h-4 text-amber-400" />
                 <span>{boardOrientation === 'white' ? 'White (You)' : 'Black (AI)'}</span>
+                {(() => {
+                  const { whiteLost, blackLost, advantage } = getMaterialBalance(displayFen)
+                  const botLost = boardOrientation === 'white' ? blackLost : whiteLost
+                  const botAdv = boardOrientation === 'white' ? -advantage : advantage
+                  return (
+                    <span className="flex items-center gap-1">
+                      <PieceSymbols lost={botLost} color={boardOrientation === 'white' ? 'b' : 'w'} />
+                      {botAdv > 0 && <span className="text-xs text-green-400 font-bold">+{botAdv}</span>}
+                    </span>
+                  )
+                })()}
               </div>
               <ChessClock ms={boardOrientation === 'white' ? whiteMs : blackMs} active={!displayGameOver && moveHistory.length > 0 && (boardOrientation === 'white' ? isWhiteTurn : !isWhiteTurn)} />
             </div>
@@ -547,6 +655,11 @@ export default function App() {
                 disabled={!!displayGameOver || moveHistory.length === 0}
                 className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-sm">
                 <Handshake className="w-4 h-4" />Draw
+              </button>
+              <button onClick={() => setSoundEnabled(e => !e)}
+                title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+                className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm">
+                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
               </button>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-center">
@@ -1029,6 +1142,15 @@ export default function App() {
       {tab === 'tournament' && (
         <div className="flex-1 overflow-y-auto py-6 px-4">
           <TournamentPanel user={user} />
+        </div>
+      )}
+
+      {/* ── LEARN TAB ────────────────────────────────────────────── */}
+      {tab === 'learn' && (
+        <div className="flex-1 overflow-y-auto py-6 px-4">
+          <div className="w-full max-w-lg mx-auto h-full">
+            <LearnPanel />
+          </div>
         </div>
       )}
     </div>

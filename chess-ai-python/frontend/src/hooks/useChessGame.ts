@@ -91,11 +91,22 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
   const [coachMove, setCoachMove] = useState<string | null>(null)
   const [isFetchingCoach, setIsFetchingCoach] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [currentOpening, setCurrentOpening] = useState<{ eco: string; name: string } | null>(null)
 
   const isPlayerTurn = useCallback(
     (g: Chess) => (g.turn() === 'w' ? 'white' : 'black') === playerColor && !g.isGameOver(),
     [playerColor]
   )
+
+  const fetchOpening = useCallback(async (moves: string[]) => {
+    if (moves.length === 0 || moves.length > 22) return
+    try {
+      const res = await fetch(`${API}/api/openings/classify-moves?moves=${moves.join('+')}`, { signal: AbortSignal.timeout(2000) })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.name && data.eco !== 'A00') setCurrentOpening({ eco: data.eco, name: data.name })
+    } catch { /* silently fail */ }
+  }, [])
 
   const fetchAnalysis = useCallback(async (currentFen: string) => {
     try {
@@ -171,6 +182,7 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
           [data.move_uci.slice(2, 4)]: { backgroundColor: 'rgba(245,158,11,0.45)' },
         })
         if (newGame.isGameOver()) setGameOver(getGameOverReason(newGame))
+        fetchOpening(moveHistoryUCIRef.current)
         fetchAnalysis(newGame.fen())
       } catch (e: any) {
         if (e?.name !== 'AbortError') console.error('AI error', e)
@@ -201,6 +213,7 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
         setFen(newGame.fen())
         setMoveHistory(newGame.history())
         setMoveHistoryUCI([...moveHistoryUCIRef.current])
+        fetchOpening(moveHistoryUCIRef.current)
         setHighlightSquares({
           [from]: { backgroundColor: 'rgba(99,102,241,0.3)' },
           [to]:   { backgroundColor: 'rgba(99,102,241,0.45)' },
@@ -242,8 +255,9 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
     setCoachMove(null)
     setCanRedo(true)
     gameSavedRef.current = false
+    fetchOpening(moveHistoryUCIRef.current)
     fetchAnalysis(newGame.fen())
-  }, [isThinking, fetchAnalysis])
+  }, [isThinking, fetchAnalysis, fetchOpening])
 
   const redo = useCallback(() => {
     if (undoStackRef.current.length === 0) return
@@ -327,6 +341,7 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
     gameSavedRef.current = false
     setCanRedo(false)
     setCoachMove(null)
+    setCurrentOpening(null)
     const g = new Chess()
     setGame(g)
     setFen(g.fen())
@@ -352,6 +367,7 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
     makePlayerMove, reset, fetchAnalysis, isPlayerTurn, saveGame,
     undo, redo, canUndo: moveHistory.length > 0 && !isThinking, canRedo,
     coachMove, isFetchingCoach, fetchCoachMove,
+    currentOpening,
   }
 }
 
