@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #0f172a;
+    --color-surface: #1e293b;
+    --color-border: #334155;
+    --color-accent: #f59e0b;
+    --color-accent-dark: #b45309;
+    --color-text: #f1f5f9;
+    --color-muted: #94a3b8;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(30, 41, 59, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(51, 65, 85, 0.6);
+  }
+  .accent-glow {
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.3);
+  }
+  .move-list {
+    scrollbar-width: thin;
+    scrollbar-color: #334155 transparent;
+  }
+}

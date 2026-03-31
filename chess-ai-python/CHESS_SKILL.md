@@ -1,0 +1,378 @@
+---
+title: "Chess AI Pro — FIDE-Level Python Chess Engine Skill"
+id: "SKILL-CHESS-AI-PYTHON-2026-03-31-001"
+author: "Chess AI Development Team"
+status: "Completed"
+created: "2026-03-31"
+updated: "2026-03-31"
+version: "2.0"
+type: "skill"
+---
+
+# Chess AI Pro — FIDE-Level Python Chess Engine Skill
+
+## Overview
+
+Full-stack, FIDE-level professional chess web application built with a **Python FastAPI backend** and **React/TypeScript/TailwindCSS frontend**. The system features a multi-agent AI architecture spanning ELO 800–3200, neural network position evaluation (NNUE-style), ECO opening explorer, rated puzzle system, JWT authentication, game annotation, WebSocket real-time gameplay, and Swiss/Round-Robin tournament management.
+
+**Entry point:** `python run.py` → API at `http://localhost:8000`  
+**Frontend:** `npm run dev` → UI at `http://localhost:5173`  
+**Tests:** `python -m pytest tests/ -v` (31 extension tests pass)
+
+---
+
+## Architecture
+
+```
+chess-ai-python/
+├── api/
+│   ├── main.py              # FastAPI app, CORS, route mounting, lifespan
+│   ├── auth.py              # JWT register/login, OAuth2, pbkdf2_sha256 hashing
+│   ├── routes/
+│   │   ├── game.py          # /api/games — analyze, ai-move, pgn-import
+│   │   ├── history.py       # /api/history — game list, moves, PGN, annotate
+│   │   ├── openings.py      # /api/openings — classify, search, all
+│   │   ├── puzzles.py       # /api/puzzles — next, submit, stats
+│   │   └── tournament.py    # /api/tournaments — Swiss/RR management
+│   └── websocket/
+│       └── handlers.py      # Real-time gameplay + spectator broadcast
+├── agents/
+│   ├── base_agent.py        # AgentConfig, AgentDecision protocol
+│   ├── orchestrator.py      # ChessAIOrchestrator — routes by game phase
+│   ├── opening_agent.py     # Polyglot opening book
+│   ├── search_agent.py      # Alpha-Beta PVS, depth 2–30
+│   └── endgame_agent.py     # Syzygy tablebase probing
+├── core/
+│   ├── evaluator.py         # Classical hand-tuned eval (PST, material)
+│   ├── nnue_evaluator.py    # NNUE-style neural evaluator (HalfKA 768-256-32-1)
+│   ├── search.py            # AlphaBetaSearch with TT, LMR, null-move
+│   ├── transposition_table.py
+│   ├── opening_explorer.py  # ECO classifier — 65+ named openings, prefix tree
+│   └── annotator.py         # GameAnnotator — move quality + PGN export
+├── db/
+│   ├── database.py          # SQLAlchemy async engine (aiosqlite)
+│   ├── models.py            # Player, Game, GameMove, Puzzle, RatingHistory
+│   └── repositories.py      # PlayerRepo, GameRepo, PuzzleRepo
+├── fide/
+│   └── rating.py            # FIDE ELO K-factor, title norms, leaderboard
+├── tournament/
+│   └── swiss.py             # SwissTournament, RoundRobinTournament, Buchholz tiebreak
+├── frontend/
+│   └── src/
+│       ├── App.tsx          # Multi-tab UI: Play, Puzzles, Openings, History, Spectate
+│       ├── hooks/
+│       │   ├── useChessGame.ts  # Game state, AI fetching, move management
+│       │   └── useAuth.ts       # JWT auth state, localStorage persistence
+│       └── components/
+│           ├── EvalGraph.tsx        # Line chart of engine eval over moves
+│           ├── PuzzlePanel.tsx      # Puzzle trainer with rating tracking
+│           ├── OpeningExplorer.tsx  # ECO search, stats, move application
+│           ├── GameHistoryPanel.tsx # Game list, move-by-move replay, PGN annotator
+│           ├── SpectatorView.tsx    # Live WebSocket spectator board + chat
+│           └── AuthModal.tsx        # Login/Register modal with JWT
+└── tests/
+    └── test_extensions.py   # 31 tests: NNUE, OpeningClassifier, Annotator, MoveQuality
+```
+
+---
+
+## Core Capabilities
+
+### Multi-Agent AI System (800–3200 ELO)
+
+The `ChessAIOrchestrator` routes decisions by game phase:
+
+| Phase    | Agent         | Method                                      |
+|----------|---------------|---------------------------------------------|
+| Opening  | OpeningAgent  | Polyglot book lookup (weighted random)      |
+| Midgame  | SearchAgent   | Alpha-Beta PVS with TT, LMR, null-move      |
+| Endgame  | EndgameAgent  | Syzygy tablebases (perfect ≤7-piece play)   |
+
+**Strength Profiles:**
+
+| Level        | ELO  | Depth |
+|--------------|------|-------|
+| Beginner     | 800  | 2     |
+| Novice       | 1200 | 4     |
+| Intermediate | 1600 | 6     |
+| Advanced     | 2000 | 10    |
+| Expert       | 2400 | 14    |
+| Master       | 2600 | 18    |
+| Grandmaster  | 2800 | 22    |
+| Super GM     | 3200 | 30    |
+
+### NNUE-Style Neural Evaluator
+
+Architecture: **HalfKA 768 → 256 → 32 → 1** (CReLU activations, NumPy inference)
+
+- Feature encoding: 12 piece types × 64 squares = 768 binary features
+- Color flip: mirrors board when Black to move via `(i+6)%12` piece index rotation
+- Weight persistence: custom binary format (`struct.pack("<I", nbytes)` per tensor)
+- Falls back to classical PST eval when no trained weights file present
+- Blends NNUE + classical at 70%/30% ratio when weights are loaded
+- Training data generation: `generate_training_data(board, result)` → `(features, target_cp)`
+
+```python
+from core.nnue_evaluator import NNUEEvaluator
+ev = NNUEEvaluator()
+score = ev.evaluate(board)   # centipawns, side-to-move relative
+```
+
+### Classical Evaluator
+
+- Material values: P=100, N=320, B=330, R=500, Q=900
+- Piece-Square Tables (PST) for all piece types, midgame + endgame phases
+- Mobility, king safety, pawn structure (passed, doubled, isolated)
+- Returns `MATE_SCORE = 100_000` on checkmate, `DRAW_SCORE = 0` on draws
+
+### Alpha-Beta Search
+
+- Principal Variation Search (PVS / Negascout)
+- Iterative deepening with transposition table (Zobrist hashing)
+- Late Move Reductions (LMR)
+- Null-move pruning
+- Quiescence search for tactical stability
+- Time-limit aware (aborts when budget exceeded)
+
+### ECO Opening Explorer
+
+65+ named openings (A00–E97), prefix-tree lookup, O(log n) classification:
+
+```python
+from core.opening_explorer import get_classifier
+clf = get_classifier()
+entry = clf.classify(board)          # → OpeningEntry(eco, name, pgn_moves)
+entry = clf.classify_from_moves(['e2e4','e7e5','g1f3'])
+results = clf.search_by_name('Sicilian')
+all_ops = clf.all_openings()
+```
+
+### Game Annotator
+
+Annotates every move with engine evaluation and quality symbol:
+
+| Symbol | Quality     | Delta CP   |
+|--------|-------------|------------|
+| `!!`   | Brilliant   | ≥ +200     |
+| `!`    | Good        | ≥ +50      |
+| (none) | Best        | ≥ 0        |
+| `!?`   | Interesting | < 0        |
+| `?!`   | Inaccuracy  | ≤ −50      |
+| `?`    | Mistake     | ≤ −100     |
+| `??`   | Blunder     | ≤ −300     |
+
+```python
+from core.annotator import GameAnnotator
+ann = GameAnnotator(depth=12, time_per_move_ms=800)
+annotations, pgn = ann.annotate_game(pgn_text)
+summary = ann.classify_moves(annotations)  # {'accuracy': 87.5, 'counts': {...}}
+```
+
+---
+
+## API Reference
+
+### Authentication — `/api/auth`
+
+| Method | Path              | Body / Params                              | Returns              |
+|--------|-------------------|--------------------------------------------|----------------------|
+| POST   | `/register`       | `{username, display_name, password}`       | JWT + player profile |
+| POST   | `/token`          | form: `username`, `password`               | JWT + player profile |
+| GET    | `/me`             | Bearer token                               | UserProfile          |
+| GET    | `/leaderboard`    | `?limit=20`                                | Top players by ELO   |
+
+### Games — `/api/games`
+
+| Method | Path           | Body                                              | Returns               |
+|--------|----------------|---------------------------------------------------|-----------------------|
+| POST   | `/analyze`     | `{fen, depth, time_limit_ms, multi_pv}`           | Multi-PV analysis     |
+| POST   | `/ai-move`     | `{fen, strength, time_limit_ms}`                  | Best move + metadata  |
+| GET    | `/strengths`   | —                                                 | Strength profiles     |
+
+### History — `/api/history`
+
+| Method | Path                        | Notes                          |
+|--------|-----------------------------|--------------------------------|
+| GET    | `/games/{player_id}`        | List of games with ratings     |
+| GET    | `/games/{game_id}/moves`    | Per-move FEN, eval, quality    |
+| GET    | `/games/{game_id}/pgn`      | Raw PGN string                 |
+| POST   | `/annotate`                 | Annotate any PGN, returns quality + accuracy |
+| GET    | `/rating/{player_id}`       | Rating history over time       |
+
+### Openings — `/api/openings`
+
+| Method | Path           | Params           |
+|--------|----------------|------------------|
+| GET    | `/classify`    | `?fen=…`         |
+| GET    | `/search`      | `?q=Sicilian`    |
+| GET    | `/all`         | —                |
+| GET    | `/eco/{code}`  | e.g. `B90`       |
+| GET    | `/stats/{eco}` | Platform stats   |
+
+### Puzzles — `/api/puzzles`
+
+| Method | Path           | Notes                                    |
+|--------|----------------|------------------------------------------|
+| GET    | `/next`        | Requires Bearer token; rating-matched    |
+| POST   | `/submit`      | `{puzzle_id, moves_uci}` → result + delta|
+| GET    | `/stats`       | Player puzzle stats                      |
+
+### Tournaments — `/api/tournaments`
+
+| Method | Path                              | Body / Params                                      | Notes                       |
+|--------|-----------------------------------|----------------------------------------------------|-----------------------------||
+| POST   | `/create`                         | `{name, format, time_control, rounds, max_players}`| Create tournament, get UUID |
+| POST   | `/{id}/register`                  | `{player_id, name, rating}`                        | Register player             |
+| POST   | `/{id}/start-round`               | —                                                  | Generate pairings           |
+| POST   | `/{id}/result?round_number=N`     | `{white_id, black_id, result}`                     | Record game result          |
+| GET    | `/{id}`                           | —                                                  | Status + full standings     |
+| GET    | `/{id}/rounds/{round_number}`     | —                                                  | Pairings for a round        |
+| GET    | `/{id}/crosstable`                | —                                                  | N×N head-to-head grid       |
+| POST   | `/rating/update`                  | player_id, ratings, scores                         | Recalculate FIDE ELO        |
+
+### WebSocket
+
+| Endpoint                              | Role     |
+|---------------------------------------|----------|
+| `ws://…/ws/game/{game_id}/{player_id}`| Player   |
+| `ws://…/ws/spectate/{game_id}`        | Spectator|
+
+**Player message types:** `move`, `ai_move`, `chat`, `resign`, `draw_offer`, `ping`  
+**Broadcast types:** `move`, `game_start`, `game_over`, `chat`, `player_disconnected`
+
+---
+
+## Frontend
+
+### Tabs
+
+| Tab       | Component           | Features                                                           |
+|-----------|---------------------|--------------------------------------------------------------------|
+| Play      | App.tsx (inline)    | Chessboard, eval bar, clocks, analysis panel, move list, settings |
+| Puzzles   | PuzzlePanel         | Fetch rated puzzle, make moves, submit solution, rating delta      |
+| Openings  | OpeningExplorer     | Search ECO, view moves, apply to board, platform stats             |
+| History   | GameHistoryPanel    | Game list by player ID, move replay, PGN annotator                 |
+| Spectate    | SpectatorView     | Live WebSocket board, clocks, move list, chat                      |
+| Tournament  | TournamentPanel   | Create/join tournaments, standings, pairings, crosstable, register |
+
+### Auth Flow
+
+1. **Sign In** button in header → `AuthModal` opens
+2. Login uses `POST /api/auth/token` (OAuth2 form-encoded)
+3. Register uses `POST /api/auth/register` (JSON)
+4. JWT stored in `localStorage` via `useAuth` hook
+5. Token auto-passed to `PuzzlePanel` and puzzle rating updates to user ELO
+6. `player_id` auto-populates History tab on login
+7. `TournamentPanel` pre-fills Register tab from logged-in user
+
+### Key Hooks
+
+```typescript
+// Game state + AI move fetching
+const { fen, moveHistory, evalCp, analysis, makePlayerMove, reset } = useChessGame(playerColor, strength)
+
+// Authentication
+const { user, login, register, logout, refreshRating } = useAuth()
+```
+
+---
+
+## Database Schema
+
+| Table           | Key Columns                                                         |
+|-----------------|---------------------------------------------------------------------|
+| `players`       | id, username, display_name, hashed_password, rating, rapid_rating  |
+| `games`         | id, white_player_id, black_player_id, result, pgn, opening_eco     |
+| `game_moves`    | game_id, move_number, uci, san, fen_after, eval_cp, move_quality   |
+| `puzzles`       | id, fen, solution_moves, rating, themes, opening_eco               |
+| `rating_history`| player_id, rating, delta, game_id, result, recorded_at             |
+
+---
+
+## FIDE Rating System
+
+```python
+from fide.rating import FIDERatingCalculator, PlayerRating
+calc = FIDERatingCalculator()
+new_white, new_black = calc.calculate(white, black, result)
+```
+
+- K-factor: 40 (new/U18), 20 (standard), 10 (established ≥2400)
+- Title norm tracking: FM (2300), IM (2400), GM (2500)
+- EloLeaderboard with in-memory ranking
+
+---
+
+## Tests
+
+```
+tests/test_extensions.py — 31 tests (all pass)
+├── TestFeatureExtractor  (3)  — extract, flip symmetry, empty board
+├── TestNNUENetwork       (3)  — forward pass, save/load roundtrip, seed diff
+├── TestNNUEEvaluator     (5)  — start position, checkmate, stalemate, active attr, training data
+├── TestOpeningClassifier (8)  — classify, from_moves, search, ECO lookup, all_openings, singleton
+├── TestMoveQuality       (7)  — blunder/mistake/inaccuracy/good/brilliant/best/None
+└── TestGameAnnotator     (5)  — create, classify_moves, annotate_board_sequence
+
+tests/test_routes.py — API integration tests (pytest + FastAPI TestClient)
+├── TestAuthRoutes       — register, duplicate_username, login, wrong_password, me_endpoint
+├── TestOpeningRoutes    — classify_fen, search, all_openings
+└── TestTournamentRoutes — create, register_player, start_round, get_tournament, crosstable
+```
+
+Run all:
+```bash
+python -m pytest tests/ -v
+```
+
+---
+
+## Running the Application
+
+### Backend
+```bash
+pip install fastapi uvicorn[standard] python-chess python-jose[cryptography] \
+            passlib sqlalchemy aiosqlite python-multipart numpy pytest pytest-asyncio
+python run.py
+# → http://localhost:8000  |  docs: http://localhost:8000/docs
+```
+
+### Frontend
+```powershell
+# Windows (Node not on PATH)
+$env:PATH = "C:\Users\Lokesha_Ramappa\tools\node-v24.13.0-win-x64;" + $env:PATH
+cd frontend && npm install && npm run dev
+# → http://localhost:5173
+```
+
+### Production build
+```powershell
+npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
+```
+
+---
+
+## Known Bugs Fixed
+
+| File                  | Bug                                    | Fix                                      |
+|-----------------------|----------------------------------------|------------------------------------------|
+| `nnue_evaluator.py`   | `_flip_features`: `i^6` out-of-bounds for i≥8 | Changed to `(i+6)%12`          |
+| `nnue_evaluator.py`   | `randomize()` dtype promotion: `float32 * float64 → float64` | Moved `.astype(float32)` after multiply |
+| `nnue_evaluator.py`   | `save/load` implicit byte order        | Explicit `<I` + `arr.nbytes`            |
+| `api/auth.py`         | `passlib[bcrypt]` incompatible with Python 3.13 | Switched to `pbkdf2_sha256`  |
+| `GameHistoryPanel.tsx`| `fen_after` missing for annotated PGNs | Reconstruct FENs via `chess.js`          |
+
+---
+
+## Future Enhancements
+
+- **NNUE Training Pipeline** — `train_nnue.py` self-play data generation + SGD training loop
+- **Polyglot Book Expansion** — import `.bin` opening books for deeper opening coverage
+- **Puzzle Import** — bulk import from Lichess puzzle database (CSV)
+- **Rating History Chart** — frontend chart of ELO over time from `/api/history/rating/{id}`
+- **Mobile PWA** — service worker + manifest for offline play
+- **E2E Tests** — Playwright tests for full frontend flows (login, play, puzzle, tournament)
+
+---
+
+**Chess AI Pro** — FIDE-level chess engine with multi-agent AI, neural evaluation, full-stack web interface, and enterprise-grade architecture.
