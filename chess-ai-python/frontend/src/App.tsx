@@ -109,8 +109,12 @@ export default function App() {
     game, fen, moveHistory, evalCp, analysis, aiInfo,
     isThinking, gameOver, highlightSquares, makePlayerMove, reset,
     reviewData, isFetchingReview, reviewIndex, reviewFens,
-    fetchGameReview, setReviewIndex,
+    fetchGameReview, setReviewIndex, saveGame,
   } = useChessGame(playerColor, strength, thinkingMs)
+
+  const [historySessionId, setHistorySessionId] = React.useState(
+    () => localStorage.getItem('chess_session_id') || ''
+  )
 
   const selectedStrength = STRENGTHS.find(s => s.value === strength)!
   const isWhiteTurn = game.turn() === 'w'
@@ -132,6 +136,47 @@ export default function App() {
     pairMoves.push([moveHistory[i], moveHistory[i + 1]])
 
   useEffect(() => { isWhiteTurnRef.current = isWhiteTurn }, [isWhiteTurn])
+
+  // Auto-save on natural game-over (checkmate / stalemate / draw)
+  useEffect(() => {
+    if (!gameOver) return
+    const r = gameOver.includes('White wins') ? '1-0'
+             : gameOver.includes('Black wins') ? '0-1'
+             : '1/2-1/2'
+    const t = gameOver.toLowerCase().includes('checkmate') ? 'checkmate'
+             : gameOver.toLowerCase().includes('stalemate') ? 'stalemate'
+             : 'draw'
+    saveGame(r, t, timeControl.label, timeControl.category.toLowerCase()).then(() => {
+      const sid = localStorage.getItem('chess_session_id')
+      if (sid) setHistorySessionId(sid)
+    })
+  }, [gameOver])
+
+  // Auto-save on timeout
+  useEffect(() => {
+    if (!timeoutMsg) return
+    const r = timeoutMsg.includes('Black wins') ? '0-1'
+             : timeoutMsg.includes('White wins') ? '1-0'
+             : timeoutMsg.includes('resigned') ? (playerColor === 'white' ? '0-1' : '1-0')
+             : '1/2-1/2'
+    const t = timeoutMsg.includes('time') ? 'timeout'
+             : timeoutMsg.includes('resigned') ? 'resignation'
+             : 'draw'
+    saveGame(r, t, timeControl.label, timeControl.category.toLowerCase()).then(() => {
+      const sid = localStorage.getItem('chess_session_id')
+      if (sid) setHistorySessionId(sid)
+    })
+  }, [timeoutMsg])
+
+  // Sync session from storage events (other tabs / after save)
+  useEffect(() => {
+    const handler = () => {
+      const sid = localStorage.getItem('chess_session_id')
+      if (sid) setHistorySessionId(sid)
+    }
+    window.addEventListener('chess_game_saved', handler)
+    return () => window.removeEventListener('chess_game_saved', handler)
+  }, [])
 
   useEffect(() => {
     if (clockRef.current) clearInterval(clockRef.current)
@@ -223,12 +268,21 @@ export default function App() {
     if (displayGameOver || moveHistory.length === 0) return
     if (clockRef.current) clearInterval(clockRef.current)
     const winner = playerColor === 'white' ? 'Black (AI)' : 'White (AI)'
+    const result = playerColor === 'white' ? '0-1' : '1-0'
+    saveGame(result, 'resignation', timeControl.label, timeControl.category.toLowerCase()).then(() => {
+      const sid = localStorage.getItem('chess_session_id')
+      if (sid) setHistorySessionId(sid)
+    })
     setTimeoutMsg(`You resigned. ${winner} wins! 🏳️`)
   }
 
   function handleDraw() {
     if (displayGameOver || moveHistory.length === 0) return
     if (clockRef.current) clearInterval(clockRef.current)
+    saveGame('1/2-1/2', 'draw', timeControl.label, timeControl.category.toLowerCase()).then(() => {
+      const sid = localStorage.getItem('chess_session_id')
+      if (sid) setHistorySessionId(sid)
+    })
     setTimeoutMsg('Game drawn by agreement. 🤝')
   }
 
@@ -856,7 +910,7 @@ export default function App() {
       {/* ── HISTORY TAB ──────────────────────────────────────────── */}
       {tab === 'history' && (
         <div className="flex-1 overflow-y-auto py-6 px-4">
-          <GameHistoryPanel initialPlayerId={user?.player_id} />
+          <GameHistoryPanel initialPlayerId={user?.player_id || historySessionId || undefined} />
         </div>
       )}
 

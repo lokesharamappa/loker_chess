@@ -465,9 +465,27 @@ export function GameHistoryPanel({ initialPlayerId }: { initialPlayerId?: string
     }
   }, [])
 
+  // Auto-load from initialPlayerId or localStorage session
   useEffect(() => {
-    if (initialPlayerId) fetchGames(initialPlayerId)
+    const id = initialPlayerId || localStorage.getItem('chess_session_id') || ''
+    if (id) {
+      setInputVal(id)
+      fetchGames(id)
+    }
   }, [initialPlayerId, fetchGames])
+
+  // Reload when a new game is saved (fires custom event from useChessGame)
+  useEffect(() => {
+    const handler = () => {
+      const id = localStorage.getItem('chess_session_id')
+      if (id) {
+        setInputVal(id)
+        fetchGames(id)
+      }
+    }
+    window.addEventListener('chess_game_saved', handler)
+    return () => window.removeEventListener('chess_game_saved', handler)
+  }, [fetchGames])
 
   const openGame = useCallback(async (game: GameSummary) => {
     setSelectedGame(game)

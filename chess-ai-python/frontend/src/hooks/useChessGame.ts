@@ -85,6 +85,8 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
   const [isFetchingReview, setIsFetchingReview] = useState(false)
   const [reviewIndex, setReviewIndex] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
+  const moveHistoryUCIRef = useRef<string[]>([])
+  const gameSavedRef = useRef(false)
 
   const isPlayerTurn = useCallback(
     (g: Chess) => (g.turn() === 'w' ? 'white' : 'black') === playerColor && !g.isGameOver(),
@@ -105,8 +107,36 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
     } catch { /* silently fail */ }
   }, [])
 
+  const saveGame = useCallback(async (result: string, termination: string, timeControl = '5+0', timeCategory = 'blitz') => {
+    if (gameSavedRef.current || moveHistoryUCIRef.current.length < 2) return
+    gameSavedRef.current = true
+    const sessionId = localStorage.getItem('chess_session_id') || undefined
+    try {
+      const res = await fetch(`${API}/api/history/quick-save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          moves_uci: moveHistoryUCIRef.current,
+          result,
+          termination,
+          player_color: playerColor,
+          time_control: timeControl,
+          time_category: timeCategory,
+          session_id: sessionId,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        localStorage.setItem('chess_session_id', data.session_id)
+        window.dispatchEvent(new CustomEvent('chess_game_saved', { detail: data }))
+      }
+    } catch (e) {
+      console.error('Save game error', e)
+    }
+  }, [playerColor])
+
   const fetchAIMove = useCallback(
-    async (currentFen: string, currentGame: Chess) => {
+    async (currentFen: string, _currentGame?: Chess) => {
       if (abortRef.current) abortRef.current.abort()
       abortRef.current = new AbortController()
       setIsThinking(true)
@@ -120,13 +150,18 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
         if (!res.ok) return
         const data: AIMoveInfo = await res.json()
         setAiInfo(data)
-        const newGame = new Chess(currentFen)
+        // Rebuild full game from UCI ref to preserve complete history
+        const newGame = new Chess()
+        for (const uci of moveHistoryUCIRef.current) {
+          newGame.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || undefined })
+        }
         newGame.move({ from: data.move_uci.slice(0, 2), to: data.move_uci.slice(2, 4),
                        promotion: data.move_uci[4] || undefined })
+        moveHistoryUCIRef.current = [...moveHistoryUCIRef.current, data.move_uci]
         setGame(newGame)
         setFen(newGame.fen())
         setMoveHistory(newGame.history())
-        setMoveHistoryUCI(newGame.history({ verbose: true }).map(m => m.from + m.to + (m.promotion ?? '')))
+        setMoveHistoryUCI([...moveHistoryUCIRef.current])
         setHighlightSquares({
           [data.move_uci.slice(0, 2)]: { backgroundColor: 'rgba(245,158,11,0.3)' },
           [data.move_uci.slice(2, 4)]: { backgroundColor: 'rgba(245,158,11,0.45)' },
@@ -146,13 +181,19 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
     (from: string, to: string, promotion?: string): boolean => {
       if (isThinking) return false
       try {
-        const newGame = new Chess(game.fen())
+        // Rebuild from full UCI history to preserve complete move list
+        const newGame = new Chess()
+        for (const uci of moveHistoryUCIRef.current) {
+          newGame.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || undefined })
+        }
         const move = newGame.move({ from, to, promotion: promotion || undefined })
         if (!move) return false
+        const moveUci = move.from + move.to + (move.promotion || '')
+        moveHistoryUCIRef.current = [...moveHistoryUCIRef.current, moveUci]
         setGame(newGame)
         setFen(newGame.fen())
         setMoveHistory(newGame.history())
-        setMoveHistoryUCI(newGame.history({ verbose: true }).map(m => m.from + m.to + (m.promotion ?? '')))
+        setMoveHistoryUCI([...moveHistoryUCIRef.current])
         setHighlightSquares({
           [from]: { backgroundColor: 'rgba(99,102,241,0.3)' },
           [to]:   { backgroundColor: 'rgba(99,102,241,0.45)' },
@@ -164,12 +205,12 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
         }
         fetchAnalysis(newGame.fen())
         if (!isPlayerTurn(newGame)) {
-          fetchAIMove(newGame.fen(), newGame)
+          fetchAIMove(newGame.fen())
         }
         return true
       } catch { return false }
     },
-    [game, isThinking, isPlayerTurn, fetchAIMove, fetchAnalysis]
+    [isThinking, isPlayerTurn, fetchAIMove, fetchAnalysis]
   )
 
   const fetchGameReview = useCallback(async (depth = 10, timePerMoveMs = 200) => {
@@ -208,6 +249,8 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
 
   const reset = useCallback(() => {
     abortRef.current?.abort()
+    moveHistoryUCIRef.current = []
+    gameSavedRef.current = false
     const g = new Chess()
     setGame(g)
     setFen(g.fen())
@@ -222,7 +265,7 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
     setReviewData(null)
     setIsFetchingReview(false)
     setReviewIndex(0)
-    if (playerColor === 'black') fetchAIMove(g.fen(), g)
+    if (playerColor === 'black') fetchAIMove(g.fen())
   }, [playerColor, fetchAIMove])
 
   return {
@@ -230,7 +273,7 @@ export function useChessGame(playerColor: 'white' | 'black', strength: Strength,
     isThinking, gameOver, highlightSquares,
     reviewData, isFetchingReview, reviewIndex, reviewFens,
     fetchGameReview, setReviewIndex,
-    makePlayerMove, reset, fetchAnalysis, isPlayerTurn,
+    makePlayerMove, reset, fetchAnalysis, isPlayerTurn, saveGame,
   }
 }
 
