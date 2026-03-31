@@ -205,6 +205,19 @@ export default function App() {
     if (clockRef.current) clearInterval(clockRef.current)
   }
 
+  function handleResign() {
+    if (displayGameOver || moveHistory.length === 0) return
+    if (clockRef.current) clearInterval(clockRef.current)
+    const winner = playerColor === 'white' ? 'Black (AI)' : 'White (AI)'
+    setTimeoutMsg(`You resigned. ${winner} wins! 🏳️`)
+  }
+
+  function handleDraw() {
+    if (displayGameOver || moveHistory.length === 0) return
+    if (clockRef.current) clearInterval(clockRef.current)
+    setTimeoutMsg('Game drawn by agreement. 🤝')
+  }
+
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'play',     label: 'Play',     icon: <Shield className="w-4 h-4" /> },
     { id: 'puzzles',  label: 'Puzzles',  icon: <Puzzle className="w-4 h-4" /> },
@@ -375,10 +388,14 @@ export default function App() {
                 className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm">
                 <ChevronLeft className="w-3 h-3" /><ChevronRight className="w-3 h-3" />Flip
               </button>
-              <button className="flex items-center gap-1 px-3 py-2 bg-red-900 hover:bg-red-800 rounded-lg text-sm">
+              <button onClick={handleResign}
+                disabled={!!displayGameOver || moveHistory.length === 0}
+                className="flex items-center gap-1 px-3 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-sm">
                 <Flag className="w-4 h-4" />Resign
               </button>
-              <button className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm">
+              <button onClick={handleDraw}
+                disabled={!!displayGameOver || moveHistory.length === 0}
+                className="flex items-center gap-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-sm">
                 <Handshake className="w-4 h-4" />Draw
               </button>
             </div>
