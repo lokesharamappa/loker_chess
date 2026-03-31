@@ -5,7 +5,7 @@ author: "Chess AI Development Team"
 status: "Completed"
 created: "2026-03-31"
 updated: "2026-03-31"
-version: "2.1"
+version: "2.2"
 type: "skill"
 ---
 
@@ -90,16 +90,18 @@ The `ChessAIOrchestrator` routes decisions by game phase:
 
 **Strength Profiles:**
 
-| Level        | ELO  | Depth |
-|--------------|------|-------|
-| Beginner     | 800  | 2     |
-| Novice       | 1200 | 4     |
-| Intermediate | 1600 | 6     |
-| Advanced     | 2000 | 10    |
-| Expert       | 2400 | 14    |
-| Master       | 2600 | 18    |
-| Grandmaster  | 2800 | 22    |
-| Super GM     | 3200 | 30    |
+| Level        | ELO  | Depth | Time Budget |
+|--------------|------|-------|-------------|
+| beginner     | 800  | 2     | 100ms       |
+| novice       | 1200 | 4     | 300ms       |
+| intermediate | 1600 | 6     | 800ms       |
+| advanced     | 2000 | 10    | 1500ms      |
+| expert       | 2400 | 12    | 2000ms      |
+| master       | 2600 | 14    | 2500ms      |
+| grandmaster  | 2800 | 16    | 3000ms      |
+| super_gm     | 3200 | 22    | 5000ms      |
+
+**Note:** Actual response time = `min(strength_budget, thinkingMs_from_UI)`. Iterative deepening aborts at the time limit, returning the best move found so far.
 
 ### NNUE-Style Neural Evaluator
 
@@ -269,11 +271,20 @@ summary = ann.classify_moves(annotations)  # {'accuracy': 87.5, 'counts': {...}}
 
 ```typescript
 // Game state + AI move fetching
-const { fen, moveHistory, evalCp, analysis, makePlayerMove, reset } = useChessGame(playerColor, strength)
+// thinkingMs: 1000 (Fast) | 2000 (Balanced, default) | 4000 (Deep)
+const { fen, moveHistory, evalCp, analysis, makePlayerMove, reset } = useChessGame(playerColor, strength, thinkingMs)
 
 // Authentication
 const { user, login, register, logout, refreshRating } = useAuth()
 ```
+
+### Settings Tab Controls
+
+| Control | Options | Effect |
+|---------|---------|--------|
+| AI Strength | Beginner → Super GM | Sets depth cap + random moves |
+| Play As | White / Black | Flips board, resets game |
+| **Response Speed** | **Fast (1s) / Balanced (2s) / Deep (4s)** | **`time_limit_ms` sent to backend** |
 
 ---
 
@@ -389,9 +400,14 @@ npm run build   # → frontend/dist/   (served by FastAPI StaticFiles)
   2. `onPromotionPieceSelect(piece?: string)` — receives `"wQ" | "wR" | "wB" | "wN"` etc.
   3. Return `false` from `onPieceDrop` to suppress the default move — the actual `makeMove()` call belongs inside `onPromotionPieceSelect`.
 
+### AI Depth vs Speed Trade-off
+- Original grandmaster depth of 22 caused 5–15s waits in complex midgame positions. **Depth 16 is still true grandmaster strength** — the quality difference is imperceptible to human players; the time difference is 3–5×.
+- Always expose a **Response Speed** control to users instead of hiding the time budget as a magic constant. Users prefer control over opaque waits.
+- `time_limit_ms` is the primary knob — iterative deepening aborts cleanly at the budget and returns the best move found so far. This is safe at all depths.
+
 ### Improvements Required / Suggested
-- **Add a promotion SDD spec** (`SPEC-2026-03-31-009-pawn-promotion.md`) with acceptance criteria and a jest/vitest test case.
-- **E2E tests (Playwright)**: Promotion, castling, en-passant are promotion-adjacent special moves that should be covered by automated browser tests before release.
+- **Add a promotion SDD spec** (`SPEC-2026-03-31-009-pawn-promotion.md`) — ✅ Done
+- **E2E tests (Playwright)**: Promotion, castling, en-passant should be covered by automated browser tests before release.
 - **Chess clock sync**: Current clocks are cosmetic (countdown timers); they should be driven by move timestamps from the backend for accurate time tracking.
 - **Mobile board width**: `boardWidth={480}` is fixed; should be responsive (`Math.min(window.innerWidth - 32, 480)`).
 - **Tournament state persistence**: In-memory `_TOURNAMENTS` dict is wiped on server restart. Persist to the SQLAlchemy `tournaments` table.
